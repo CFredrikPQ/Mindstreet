@@ -1,7 +1,22 @@
 import { seedPages } from "@/lib/cms/seed";
 import type { CmsLink, CmsPage } from "@/lib/cms/types";
 
+export type PageArchiveEntry = {
+  id: string;
+  slug: string;
+  deletedAt: string;
+  pages: CmsPage[];
+};
+
+export type ArchiveWriteResult = {
+  next: CmsPage[] | null;
+  archive: PageArchiveEntry[] | null;
+  slug?: string;
+  error: string | null;
+};
+
 const STORAGE_KEY = "mindstreet-cms-pages";
+const ARCHIVE_KEY = "mindstreet-cms-page-archive";
 const SEED_FLAG = "mindstreet-cms-seed-version";
 const SEED_VERSION = "expertomraden-v1";
 const RESERVED = new Set(["admin"]);
@@ -58,6 +73,124 @@ export function writePages(pages: CmsPage[]): string | null {
   } catch {
     return "Kunde inte spara. Bilden är för stor för webbläsaren.";
   }
+}
+
+export function loadArchive(): PageArchiveEntry[] {
+  if (typeof window === "undefined") return [];
+  return readArchive();
+}
+
+export function pagesRemovedWith(slug: string, pages: CmsPage[]): CmsPage[] {
+  const removed = new Set<string>([slug]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const page of pages) {
+      if (page.parentSlug && removed.has(page.parentSlug) && !removed.has(page.slug)) {
+        removed.add(page.slug);
+        grew = true;
+      }
+    }
+  }
+  return pages.filter((page) => removed.has(page.slug));
+}
+
+export function deletePagesToArchive(slug: string, pages: CmsPage[]): ArchiveWriteResult {
+  const removed = pagesRemovedWith(slug, pages);
+  if (!removed.some((page) => page.slug === slug)) {
+    return { next: null, archive: null, error: "Sidan finns inte." };
+  }
+
+  const entry: PageArchiveEntry = {
+    id: crypto.randomUUID(),
+    slug,
+    deletedAt: new Date().toISOString(),
+    pages: removed,
+  };
+  const previous = readArchive();
+  const archive = [entry, ...previous];
+  const archiveError = writeArchive(archive);
+  if (archiveError) {
+    return { next: null, archive: null, error: archiveError };
+  }
+
+  const next = pages.filter((page) => !removed.some((item) => item.slug === page.slug));
+  const pagesError = writePages(next);
+  if (pagesError) {
+    writeArchive(previous);
+    return { next: null, archive: null, error: pagesError };
+  }
+
+  return { next, archive, error: null };
+}
+
+export function restoreArchivedPages(id: string, pages: CmsPage[]): ArchiveWriteResult {
+  const previous = readArchive();
+  const entry = previous.find((item) => item.id === id);
+  if (!entry) {
+    return { next: null, archive: null, error: "Arkivkopian finns inte." };
+  }
+
+  const conflict = entry.pages.find((page) => pages.some((live) => live.slug === page.slug));
+  if (conflict) {
+    return {
+      next: null,
+      archive: null,
+      error: `Sökvägen /${conflict.slug} används redan, så sidan kan inte återställas.`,
+    };
+  }
+
+  const next = [...pages, ...entry.pages];
+  const pagesError = writePages(next);
+  if (pagesError) {
+    return { next: null, archive: null, error: pagesError };
+  }
+
+  const archive = previous.filter((item) => item.id !== id);
+  const archiveError = writeArchive(archive);
+  if (archiveError) {
+    return {
+      next,
+      archive: previous,
+      slug: entry.slug,
+      error: "Sidan är återställd, men arkivkopian kunde inte rensas.",
+    };
+  }
+
+  return { next, archive, slug: entry.slug, error: null };
+}
+
+function readArchive(): PageArchiveEntry[] {
+  try {
+    const raw = window.localStorage.getItem(ARCHIVE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(hydrateArchiveEntry)
+      .filter((entry): entry is PageArchiveEntry => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
+function writeArchive(entries: PageArchiveEntry[]): string | null {
+  try {
+    window.localStorage.setItem(ARCHIVE_KEY, JSON.stringify(entries));
+    return null;
+  } catch {
+    return "Kunde inte spara arkivet. Sidan är kvar.";
+  }
+}
+
+function hydrateArchiveEntry(value: unknown): PageArchiveEntry | null {
+  if (!value || typeof value !== "object") return null;
+  const entry = value as Partial<PageArchiveEntry>;
+  if (typeof entry.id !== "string" || typeof entry.slug !== "string") return null;
+  if (typeof entry.deletedAt !== "string" || !Array.isArray(entry.pages)) return null;
+  const pages = entry.pages.map(hydratePage).filter((page): page is CmsPage => page !== null);
+  if (!pages.some((page) => page.slug === entry.slug)) return null;
+  return { id: entry.id, slug: entry.slug, deletedAt: entry.deletedAt, pages };
 }
 
 export function getPage(slug: string): CmsPage | null {

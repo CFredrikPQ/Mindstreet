@@ -15,14 +15,19 @@ import {
 } from "@/lib/cms/library";
 import {
   composeSlug,
+  deletePagesToArchive,
+  loadArchive,
   loadPages,
   normalizeSlug,
   orderedPages,
+  pagesRemovedWith,
   pageTitle,
+  restoreArchivedPages,
   rootPages,
   slugifyTitle,
   validateSlug,
   writePages,
+  type PageArchiveEntry,
 } from "@/lib/cms/storage";
 import type { BlockTheme, BlockType, CmsBlock, CmsLink, CmsPage } from "@/lib/cms/types";
 import "./admin.css";
@@ -62,12 +67,16 @@ export default function AdminPage() {
   const [published, setPublished] = useState(true);
   const [lastSavedSlug, setLastSavedSlug] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [archive, setArchive] = useState<PageArchiveEntry[]>([]);
+  const [deleteSlug, setDeleteSlug] = useState<string | null>(null);
+  const [deleteInput, setDeleteInput] = useState("");
   const pagesRef = useRef(pages);
   pagesRef.current = pages;
 
   useEffect(() => {
     const stored = loadPages();
     setPages(stored);
+    setArchive(loadArchive());
     setHome(loadHome());
     setSelectedSlug(HOME_SELECTION);
   }, []);
@@ -75,6 +84,8 @@ export default function AdminPage() {
   const homeSelected = selectedSlug === HOME_SELECTION;
   const selected = homeSelected ? null : pages.find((page) => page.slug === selectedSlug) ?? null;
   const listedPages = orderedPages(pages);
+  const pendingDelete = deleteSlug ? pages.find((page) => page.slug === deleteSlug) ?? null : null;
+  const pendingRemoved = deleteSlug ? pagesRemovedWith(deleteSlug, pages) : [];
   const parents = rootPages(pages);
   const previewSlug = composeSlug(parentSlug || undefined, slugInput || slugifyTitle(titleInput));
 
@@ -195,18 +206,49 @@ export default function AdminPage() {
     resetCreateForm();
   }
 
-  function removePage(slug: string) {
-    const confirmed = window.confirm(`Ta bort ${SITE_HOST}/${slug}?`);
-    if (!confirmed) return;
-    const saved = persist((current) =>
-      current.filter((page) => page.slug !== slug && page.parentSlug !== slug),
+  function togglePublished(slug: string) {
+    persist((current) =>
+      current.map((page) =>
+        page.slug === slug ? { ...page, published: !page.published } : page,
+      ),
     );
-    if (!saved) return;
-    setSelectedSlug((current) => {
-      const next = pagesRef.current;
-      if (current && next.some((page) => page.slug === current)) return current;
-      return HOME_SELECTION;
-    });
+  }
+
+  function openDelete(slug: string) {
+    setDeleteSlug(slug);
+    setDeleteInput("");
+    setNotice(null);
+  }
+
+  function confirmDelete() {
+    if (!deleteSlug) return;
+    const address = `${SITE_HOST}/${deleteSlug}`;
+    if (!addressMatches(deleteInput, address)) return;
+    const result = deletePagesToArchive(deleteSlug, pagesRef.current);
+    if (result.error || !result.next || !result.archive) {
+      setNotice(result.error ?? "Kunde inte ta bort sidan.");
+      return;
+    }
+    pagesRef.current = result.next;
+    setPages(result.next);
+    setArchive(result.archive);
+    setDeleteSlug(null);
+    setDeleteInput("");
+    setSelectedSlug(HOME_SELECTION);
+    setNotice("Sidan är borttagen och ligger kvar i arkivet.");
+  }
+
+  function restorePage(id: string) {
+    const result = restoreArchivedPages(id, pagesRef.current);
+    if (!result.next) {
+      setNotice(result.error ?? "Kunde inte återställa sidan.");
+      return;
+    }
+    pagesRef.current = result.next;
+    setPages(result.next);
+    if (result.archive) setArchive(result.archive);
+    if (result.slug) setSelectedSlug(result.slug);
+    setNotice(result.error ?? "Sidan är återställd.");
   }
 
   function addBlock(type: BlockType) {
@@ -356,6 +398,33 @@ export default function AdminPage() {
                       </li>
                     ))}
                   </ul>
+                  {archive.length > 0 ? (
+                    <section className="admin-archive" aria-label="Borttagna sidor">
+                      <h3>Borttagna sidor</h3>
+                      <p>Kopian ligger kvar här tills sidan återställs.</p>
+                      <ul>
+                        {archive.map((entry) => {
+                          const page =
+                            entry.pages.find((item) => item.slug === entry.slug) ?? entry.pages[0];
+                          return (
+                            <li key={entry.id}>
+                              <span>{pageTitle(page)}</span>
+                              <small>
+                                {SITE_HOST}/{page.slug}
+                                {entry.pages.length > 1
+                                  ? ` · ${entry.pages.length - 1} undersidor`
+                                  : ""}
+                              </small>
+                              <small>{formatDeletedAt(entry.deletedAt)}</small>
+                              <button type="button" className="admin-quiet" onClick={() => restorePage(entry.id)}>
+                                Återställ
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                  ) : null}
                 </section>
 
                 {homeSelected ? (
@@ -385,21 +454,26 @@ export default function AdminPage() {
                         </p>
                       </div>
                       <div className="admin-main-actions">
-                        <a
-                          className="admin-primary"
-                          href={`/${selected.slug}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Öppna sida
-                        </a>
-                        <button
-                          type="button"
-                          className="admin-quiet"
-                          onClick={() => removePage(selected.slug)}
-                        >
-                          Ta bort sida
-                        </button>
+                        <div className="admin-action-row">
+                          <a
+                            className="admin-primary"
+                            href={`/${selected.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Öppna sida
+                          </a>
+                          <button
+                            type="button"
+                            className={
+                              selected.published ? "admin-publish is-live" : "admin-publish"
+                            }
+                            aria-pressed={selected.published}
+                            onClick={() => togglePublished(selected.slug)}
+                          >
+                            {selected.published ? "Publiserad" : "Ej publiserad"}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -570,6 +644,22 @@ export default function AdminPage() {
                           })}
                         </ol>
                       )}
+                    </section>
+
+                    <section className="admin-danger" aria-label="Ta bort sida">
+                      <h3>Ta bort sidan</h3>
+                      <p>
+                        {pages.some((page) => page.parentSlug === selected.slug)
+                          ? "Sidan och dess undersidor försvinner från webbplatsen. En kopia sparas under Borttagna sidor och kan återställas."
+                          : "Sidan försvinner från webbplatsen. En kopia sparas under Borttagna sidor och kan återställas."}
+                      </p>
+                      <button
+                        type="button"
+                        className="admin-danger-button"
+                        onClick={() => openDelete(selected.slug)}
+                      >
+                        Ta bort sida
+                      </button>
                     </section>
                   </section>
                 ) : null}
@@ -943,6 +1033,115 @@ export default function AdminPage() {
           ) : null}
         </main>
       </div>
+      {pendingDelete ? (
+        <DeletePageDialog
+          title={pageTitle(pendingDelete)}
+          address={`${SITE_HOST}/${pendingDelete.slug}`}
+          childCount={Math.max(0, pendingRemoved.length - 1)}
+          value={deleteInput}
+          onChange={setDeleteInput}
+          onCancel={() => {
+            setDeleteSlug(null);
+            setDeleteInput("");
+          }}
+          onConfirm={confirmDelete}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function addressMatches(input: string, address: string) {
+  const value = input.trim().replace(/^https?:\/\//i, "").replace(/\/$/, "");
+  return value === address;
+}
+
+function formatDeletedAt(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("sv-SE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function DeletePageDialog({
+  title,
+  address,
+  childCount,
+  value,
+  onChange,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  address: string;
+  childCount: number;
+  value: string;
+  onChange: (value: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const matches = addressMatches(value, address);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onCancel();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  return (
+    <div
+      className="admin-modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <form
+        className="admin-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-page-title"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (matches) onConfirm();
+        }}
+      >
+        <h2 id="delete-page-title">Ta bort {title}?</h2>
+        <p>
+          Skriv <strong>{address}</strong> för att bekräfta.{" "}
+          {childCount > 0
+            ? `Sidan och ${childCount} ${childCount === 1 ? "undersida" : "undersidor"} tas bort från webbplatsen.`
+            : "Sidan tas bort från webbplatsen."}{" "}
+          Kopian sparas i arkivet.
+        </p>
+        <label>
+          Adress
+          <input
+            ref={inputRef}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={address}
+          />
+        </label>
+        <div className="admin-modal-actions">
+          <button type="button" className="admin-quiet" onClick={onCancel}>
+            Avbryt
+          </button>
+          <button type="submit" className="admin-danger-button" disabled={!matches}>
+            Ta bort sida
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
