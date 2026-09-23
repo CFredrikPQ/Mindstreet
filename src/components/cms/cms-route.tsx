@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { PageBlocks } from "@/components/cms/page-blocks";
-import { getPage } from "@/lib/cms/storage";
+import { getPublishedPage } from "@/lib/cms/storage";
 import type { CmsPage } from "@/lib/cms/types";
 
 export function CmsRoute({ slug }: { slug: string }) {
   const [page, setPage] = useState<CmsPage | null | undefined>(undefined);
 
   useEffect(() => {
-    const found = getPage(slug);
+    const found = getPublishedPage(slug);
     setPage(found);
-    document.title = found ? `${found.slug} – Mindstreet` : "Mindstreet";
+    document.title = found ? `${found.title || found.slug} – Mindstreet` : "Mindstreet";
   }, [slug]);
 
   if (page === undefined) return null;

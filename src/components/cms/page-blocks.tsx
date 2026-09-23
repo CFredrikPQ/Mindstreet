@@ -17,6 +17,17 @@ export function PageBlocks({ page }: { page: CmsPage }) {
       {page.blocks.map((block, index) => (
         <BlockView key={block.id} block={block} withHeader={firstIsHero && index === 0} />
       ))}
+      {page.links.length > 0 ? (
+        <nav className="cms-page-links" aria-label="Länkar">
+          <ul>
+            {page.links.map((link) => (
+              <li key={`${link.label}-${link.href}`}>
+                <a href={link.href}>{link.label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
     </div>
   );
 }
@@ -76,20 +87,147 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
     );
   }
 
-  return (
-    <section className="seminar-wrap">
-      <div className="seminar">
-        {block.image ? (
-          <img src={block.image} alt="" />
-        ) : (
-          <div className="cms-banner-fallback" />
-        )}
-        <div className="seminar-shade" />
-        <div className="seminar-copy">
-          {block.body ? <p>{block.body}</p> : null}
+  if (block.type === "banner") {
+    return (
+      <section className="seminar-wrap">
+        <div className="seminar">
+          {block.image ? (
+            <img src={block.image} alt="" />
+          ) : (
+            <div className="cms-banner-fallback" />
+          )}
+          <div className="seminar-shade" />
+          <div className="seminar-copy">
+            {block.body ? <p>{block.body}</p> : null}
+            <h2>{block.heading}</h2>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (block.type === "imageText") {
+    const side = block.imageSide === "left" ? "left" : "right";
+    return (
+      <section className={`cms-media cms-media-${side === "left" ? "mist" : "sand"}`}>
+        {side === "left" ? <ModuleShape /> : null}
+        <div className={`cms-media-inner is-image-${side}`}>
+          {side === "left" ? <ModulePhoto src={block.image} /> : null}
+          <ModuleCopy block={block} />
+          {side === "right" ? <ModulePhoto src={block.image} /> : null}
+        </div>
+      </section>
+    );
+  }
+
+  if (block.type === "imagePair") {
+    const side = block.imageSide === "right" ? "right" : "left";
+    return (
+      <section className={`cms-media cms-media-pair cms-media-pair-${side}`}>
+        {side === "left" ? <ModuleShape /> : null}
+        <div className={`cms-media-inner is-image-${side}`}>
+          {side === "left" ? <PairPhotos block={block} /> : null}
+          <ModuleCopy block={block} />
+          {side === "right" ? <PairPhotos block={block} /> : null}
+        </div>
+      </section>
+    );
+  }
+
+  if (block.type === "sectionHeader") {
+    const align = block.align === "center" ? "center" : "left";
+    return (
+      <section className={`cms-divider is-${align}`}>
+        <div className="cms-divider-inner">
           <h2>{block.heading}</h2>
         </div>
-      </div>
-    </section>
+      </section>
+    );
+  }
+
+  if (block.type === "highlight") {
+    return (
+      <section className="seminar-wrap">
+        <div className="seminar">
+          {block.image ? (
+            <img src={block.image} alt="" />
+          ) : (
+            <div className="cms-banner-fallback" />
+          )}
+          <div className="seminar-shade" />
+          <div className="seminar-copy">
+            {block.body ? <p>{block.body}</p> : null}
+            <h2>{block.heading}</h2>
+            {block.buttonLabel ? (
+              <a className="btn btn-cream" href={block.buttonHref || "#"}>
+                {block.buttonLabel}
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (block.type === "lead") {
+    return (
+      <section className="intro">
+        <h2>{block.heading}</h2>
+        <p>{block.body}</p>
+      </section>
+    );
+  }
+
+  return null;
+}
+
+function ModuleShape() {
+  return (
+    <img
+      className="cms-media-shape"
+      src="/icons/about-shape.svg"
+      width={1440}
+      height={833}
+      alt=""
+    />
+  );
+}
+
+function ModuleCopy({ block }: { block: CmsBlock }) {
+  return (
+    <div className="cms-module-copy">
+      {block.eyebrow ? <p className="cms-eyebrow">{block.eyebrow}</p> : null}
+      {block.heading ? <h2>{block.heading}</h2> : null}
+      {block.body ? <p className="cms-module-text">{block.body}</p> : null}
+      {block.buttonLabel ? (
+        <a className="btn btn-dark" href={block.buttonHref || "#"}>
+          {block.buttonLabel}
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+function ModulePhoto({ src }: { src?: string }) {
+  if (src) {
+    return <img className="cms-media-photo" src={src} alt="" />;
+  }
+  return <div className="cms-media-photo cms-photo-fallback" />;
+}
+
+function PairPhotos({ block }: { block: CmsBlock }) {
+  return (
+    <div className="cms-pair-photos">
+      {block.image ? (
+        <img src={block.image} alt="" />
+      ) : (
+        <div className="cms-photo-fallback" />
+      )}
+      {block.image2 ? (
+        <img src={block.image2} alt="" />
+      ) : (
+        <div className="cms-photo-fallback" />
+      )}
+    </div>
   );
 }

@@ -3,8 +3,8 @@ import { CmsRoute } from "@/components/cms/cms-route";
 export default async function SlugPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string[] }>;
 }) {
   const { slug } = await params;
-  return <CmsRoute slug={slug} />;
+  return <CmsRoute slug={slug.join("/")} />;
 }
