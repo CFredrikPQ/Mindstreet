@@ -30,10 +30,10 @@ const expertiseBody =
 export const expertise = {
   title: "Våra expertområden",
   items: [
-    { title: "Betalningar", body: expertiseBody },
-    { title: "Kreditrisk", body: expertiseBody },
-    { title: "AML", body: expertiseBody },
-    { title: "Systembyten/Tech", body: expertiseBody },
+    { title: "Betalningar", body: expertiseBody, href: "/expertomraden/betalningar" },
+    { title: "Kreditrisk", body: expertiseBody, href: "/expertomraden/kreditrisk" },
+    { title: "AML", body: expertiseBody, href: "/expertomraden/aml" },
+    { title: "Systembyten/Tech", body: expertiseBody, href: "/expertomraden/systembyten" },
   ],
 };
 

@@ -346,6 +346,17 @@ p {
   padding: 36px 72px 48px 0;
 }
 
+.expertise-grid a {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.expertise-grid a:hover h3 {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 .expertise-grid article:nth-child(even) {
   padding: 36px 28px 48px 56px;
 }

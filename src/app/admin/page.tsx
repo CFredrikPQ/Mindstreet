@@ -1,13 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { HomeEditor } from "@/components/cms/home-editor";
 import { PageBlocks } from "@/components/cms/page-blocks";
+import { HOME_SELECTION, defaultHomeContent, loadHome, writeHome, type HomeContent } from "@/lib/cms/home";
 import {
   SITE_HOST,
   blockLabel,
   createBlock,
   fieldsFor,
   library,
+  resolveTheme,
+  themes,
 } from "@/lib/cms/library";
 import {
   composeSlug,
@@ -20,7 +24,7 @@ import {
   validateSlug,
   writePages,
 } from "@/lib/cms/storage";
-import type { BlockType, CmsBlock, CmsLink, CmsPage } from "@/lib/cms/types";
+import type { BlockTheme, BlockType, CmsBlock, CmsLink, CmsPage } from "@/lib/cms/types";
 import "./admin.css";
 
 const MAX_IMAGE_BYTES = 1_000_000;
@@ -46,8 +50,8 @@ const panels: { id: Panel; label: string }[] = [
 
 export default function AdminPage() {
   const [pages, setPages] = useState<CmsPage[]>([]);
-  const [ready, setReady] = useState(false);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [home, setHome] = useState<HomeContent>(defaultHomeContent);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(HOME_SELECTION);
   const [panel, setPanel] = useState<Panel>("pages");
   const [slugInput, setSlugInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
@@ -64,11 +68,12 @@ export default function AdminPage() {
   useEffect(() => {
     const stored = loadPages();
     setPages(stored);
-    setSelectedSlug(stored[0]?.slug ?? null);
-    setReady(true);
+    setHome(loadHome());
+    setSelectedSlug(HOME_SELECTION);
   }, []);
 
-  const selected = pages.find((page) => page.slug === selectedSlug) ?? null;
+  const homeSelected = selectedSlug === HOME_SELECTION;
+  const selected = homeSelected ? null : pages.find((page) => page.slug === selectedSlug) ?? null;
   const listedPages = orderedPages(pages);
   const parents = rootPages(pages);
   const previewSlug = composeSlug(parentSlug || undefined, slugInput || slugifyTitle(titleInput));
@@ -84,6 +89,16 @@ export default function AdminPage() {
     setPages(next);
     setNotice(null);
     return true;
+  }
+
+  function persistHome(next: HomeContent) {
+    const error = writeHome(next);
+    if (error) {
+      setNotice(error);
+      return;
+    }
+    setHome(next);
+    setNotice(null);
   }
 
   function resetCreateForm() {
@@ -190,7 +205,7 @@ export default function AdminPage() {
     setSelectedSlug((current) => {
       const next = pagesRef.current;
       if (current && next.some((page) => page.slug === current)) return current;
-      return next[0]?.slug ?? null;
+      return HOME_SELECTION;
     });
   }
 
@@ -285,6 +300,9 @@ export default function AdminPage() {
               onClick={() => {
                 setPanel(item.id);
                 setNotice(null);
+                if (item.id === "components" && selectedSlug === HOME_SELECTION) {
+                  setSelectedSlug(pagesRef.current[0]?.slug ?? HOME_SELECTION);
+                }
               }}
             >
               <RailIcon name={item.id} />
@@ -301,18 +319,24 @@ export default function AdminPage() {
 
         <main className="admin-main">
           {panel === "pages" ? (
-            ready && pages.length === 0 ? (
-              <div className="admin-placeholder">
-                <p className="admin-kicker">Befintliga</p>
-                <h2 className="admin-title">Sidor</h2>
-                <p>Inga sidor ännu. Skapa en sida så får den en adress på {SITE_HOST}.</p>
-              </div>
-            ) : (
               <div className="admin-pages-layout">
                 <section aria-label="Befintliga sidor">
                   <p className="admin-kicker">Befintliga</p>
                   <h2 className="admin-title">Sidor</h2>
                   <ul className="admin-page-list">
+                    <li>
+                      <button
+                        type="button"
+                        className={homeSelected ? "is-selected" : undefined}
+                        onClick={() => {
+                          setSelectedSlug(HOME_SELECTION);
+                          setNotice(null);
+                        }}
+                      >
+                        <span>Startsida</span>
+                        <small>{SITE_HOST}</small>
+                      </button>
+                    </li>
                     {listedPages.map((page) => (
                       <li key={page.slug} className={page.parentSlug ? "is-child" : undefined}>
                         <button
@@ -334,7 +358,23 @@ export default function AdminPage() {
                   </ul>
                 </section>
 
-                {selected ? (
+                {homeSelected ? (
+                  <section aria-label="Startsida">
+                    <div className="admin-main-head">
+                      <div>
+                        <p className="admin-kicker">Sida</p>
+                        <h2 className="admin-title">Startsida</h2>
+                        <p className="admin-preview">{SITE_HOST}</p>
+                      </div>
+                      <div className="admin-main-actions">
+                        <a className="admin-primary" href="/" target="_blank" rel="noreferrer">
+                          Öppna sida
+                        </a>
+                      </div>
+                    </div>
+                    <HomeEditor content={home} onChange={persistHome} />
+                  </section>
+                ) : selected ? (
                   <section aria-label="Vald sida">
                     <div className="admin-main-head">
                       <div>
@@ -397,6 +437,12 @@ export default function AdminPage() {
                                     </button>
                                   </div>
                                 </div>
+                                {fields.theme ? (
+                                  <ColorSwatch
+                                    value={resolveTheme(block)}
+                                    onChange={(theme) => updateBlock(block.id, { theme })}
+                                  />
+                                ) : null}
                                 {fields.eyebrow ? (
                                   <label>
                                     Överrad
@@ -528,7 +574,6 @@ export default function AdminPage() {
                   </section>
                 ) : null}
               </div>
-            )
           ) : null}
 
           {panel === "create" ? (
@@ -587,72 +632,74 @@ export default function AdminPage() {
                     <h3>Innehåll</h3>
                   </div>
                   <div className="admin-card-body">
-                    <section className="admin-library" aria-label="Komponentbibliotek">
-                      <ul>
-                        {library.map((item) => (
-                          <li key={item.type}>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDraftBlocks((current) => [...current, createBlock(item.type)])
-                              }
-                            >
-                              <strong>{item.label}</strong>
-                              <span>{item.description}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
+                    <BlockCatalog
+                      onAdd={(type) =>
+                        setDraftBlocks((current) => [...current, createBlock(type)])
+                      }
+                    />
                     {draftBlocks.length === 0 ? (
                       <p className="admin-empty">Inga komponenter ännu. Välj ett block ovan.</p>
                     ) : (
                       <ol className="admin-draft-list">
                         {draftBlocks.map((block, index) => (
                           <li key={block.id}>
-                            <strong>{blockLabel(block.type)}</strong>
-                            <div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDraftBlocks((current) => {
-                                    if (index === 0) return current;
-                                    const next = [...current];
-                                    const [item] = next.splice(index, 1);
-                                    next.splice(index - 1, 0, item);
-                                    return next;
-                                  })
-                                }
-                                disabled={index === 0}
-                              >
-                                Upp
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDraftBlocks((current) => {
-                                    if (index === current.length - 1) return current;
-                                    const next = [...current];
-                                    const [item] = next.splice(index, 1);
-                                    next.splice(index + 1, 0, item);
-                                    return next;
-                                  })
-                                }
-                                disabled={index === draftBlocks.length - 1}
-                              >
-                                Ner
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
+                            <div className="admin-draft-main">
+                              <strong>{blockLabel(block.type)}</strong>
+                              <div>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setDraftBlocks((current) => {
+                                      if (index === 0) return current;
+                                      const next = [...current];
+                                      const [item] = next.splice(index, 1);
+                                      next.splice(index - 1, 0, item);
+                                      return next;
+                                    })
+                                  }
+                                  disabled={index === 0}
+                                >
+                                  Upp
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setDraftBlocks((current) => {
+                                      if (index === current.length - 1) return current;
+                                      const next = [...current];
+                                      const [item] = next.splice(index, 1);
+                                      next.splice(index + 1, 0, item);
+                                      return next;
+                                    })
+                                  }
+                                  disabled={index === draftBlocks.length - 1}
+                                >
+                                  Ner
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setDraftBlocks((current) =>
+                                      current.filter((item) => item.id !== block.id),
+                                    )
+                                  }
+                                >
+                                  Ta bort
+                                </button>
+                              </div>
+                            </div>
+                            {fieldsFor(block.type).theme ? (
+                              <ColorSwatch
+                                value={resolveTheme(block)}
+                                onChange={(theme) =>
                                   setDraftBlocks((current) =>
-                                    current.filter((item) => item.id !== block.id),
+                                    current.map((item) =>
+                                      item.id === block.id ? { ...item, theme } : item,
+                                    ),
                                   )
                                 }
-                              >
-                                Ta bort
-                              </button>
-                            </div>
+                              />
+                            ) : null}
                           </li>
                         ))}
                       </ol>
@@ -871,18 +918,7 @@ export default function AdminPage() {
                     </select>
                   </label>
 
-                  <section className="admin-library" aria-label="Komponentbibliotek">
-                    <ul>
-                      {library.map((item) => (
-                        <li key={item.type}>
-                          <button type="button" onClick={() => addBlock(item.type)}>
-                            <strong>{item.label}</strong>
-                            <span>{item.description}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
+                  <BlockCatalog onAdd={addBlock} />
 
                   {selected ? (
                     <div className="admin-on-page">
@@ -972,6 +1008,52 @@ function PageMiniature({ page, url }: { page: CmsPage; url: string }) {
         </div>
       </div>
     </aside>
+  );
+}
+
+function BlockCatalog({ onAdd }: { onAdd: (type: BlockType) => void }) {
+  return (
+    <section className="admin-library" aria-label="Komponentbibliotek">
+      <ul>
+        {library.map((item) => (
+          <li key={item.type}>
+            <button type="button" onClick={() => onAdd(item.type)}>
+              <span className={`admin-thumb admin-thumb-${item.type}`} aria-hidden="true" />
+              <strong>{item.label}</strong>
+              <span>{item.description}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ColorSwatch({
+  value,
+  onChange,
+}: {
+  value: BlockTheme;
+  onChange: (theme: BlockTheme) => void;
+}) {
+  return (
+    <fieldset className="admin-swatches">
+      <legend>Bakgrund</legend>
+      <div>
+        {themes.map((theme) => (
+          <button
+            key={theme.id}
+            type="button"
+            className={value === theme.id ? "is-active" : undefined}
+            style={{ background: theme.color }}
+            aria-pressed={value === theme.id}
+            aria-label={theme.label}
+            title={theme.label}
+            onClick={() => onChange(theme.id)}
+          />
+        ))}
+      </div>
+    </fieldset>
   );
 }
 

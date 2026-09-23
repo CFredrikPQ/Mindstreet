@@ -64,16 +64,31 @@
   color: var(--navy);
 }
 
-.cms-media-sand {
+.cms-theme-sand {
   background: rgba(205, 183, 151, 0.5);
 }
 
-.cms-media-mist {
+.cms-theme-mist {
   background: #e9edef;
 }
 
-.cms-media-pair {
-  background: #e6dbcb;
+.cms-theme-cream {
+  background: #ede1da;
+}
+
+.cms-theme-white {
+  background: #fff;
+}
+
+.cms-surface {
+  position: relative;
+  overflow: hidden;
+  color: var(--navy);
+}
+
+.cms-surface-inner {
+  position: relative;
+  z-index: 1;
 }
 
 .cms-media-shape {

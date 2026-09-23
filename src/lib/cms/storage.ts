@@ -1,12 +1,18 @@
+import { seedPages } from "@/lib/cms/seed";
 import type { CmsLink, CmsPage } from "@/lib/cms/types";
 
 const STORAGE_KEY = "mindstreet-cms-pages";
+const SEED_FLAG = "mindstreet-cms-seed-version";
+const SEED_VERSION = "expertomraden-v1";
 const RESERVED = new Set(["admin"]);
 const SEGMENT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function loadPages(): CmsPage[] {
   if (typeof window === "undefined") return [];
+  return mergeSeed(readStoredPages());
+}
 
+function readStoredPages(): CmsPage[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -16,6 +22,33 @@ export function loadPages(): CmsPage[] {
   } catch {
     return [];
   }
+}
+
+function mergeSeed(stored: CmsPage[]): CmsPage[] {
+  try {
+    if (window.localStorage.getItem(SEED_FLAG) === SEED_VERSION) {
+      return stored;
+    }
+  } catch {
+    return stored;
+  }
+
+  const existing = new Set(stored.map((page) => page.slug));
+  const missing = seedPages.filter((page) => !existing.has(page.slug));
+  const next = missing.length ? [...missing, ...stored] : stored;
+
+  if (missing.length) {
+    const error = writePages(next);
+    if (error) return next;
+  }
+
+  try {
+    window.localStorage.setItem(SEED_FLAG, SEED_VERSION);
+  } catch {
+    return next;
+  }
+
+  return next;
 }
 
 export function writePages(pages: CmsPage[]): string | null {

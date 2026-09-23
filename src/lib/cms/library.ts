@@ -1,4 +1,4 @@
-import type { BlockType, CmsBlock } from "@/lib/cms/types";
+import type { BlockTheme, BlockType, CmsBlock } from "@/lib/cms/types";
 
 export const SITE_HOST = "www.mindstreet.se";
 
@@ -23,7 +23,19 @@ export type BlockFields = {
   button: boolean;
   imageSide: boolean;
   align: boolean;
+  theme: boolean;
 };
+
+export const themes: {
+  id: BlockTheme;
+  label: string;
+  color: string;
+}[] = [
+  { id: "sand", label: "Sand", color: "rgba(205, 183, 151, 0.5)" },
+  { id: "mist", label: "Dimma", color: "#e9edef" },
+  { id: "cream", label: "Grädde", color: "#ede1da" },
+  { id: "white", label: "Vit", color: "#fff" },
+];
 
 export const library: {
   type: BlockType;
@@ -33,7 +45,12 @@ export const library: {
   {
     type: "hero",
     label: "Hero",
-    description: "Bakgrundsbild, rubrik och text",
+    description: "Helbild med rubrik",
+  },
+  {
+    type: "lead",
+    label: "Ingress",
+    description: "Stor rubrik och text",
   },
   {
     type: "text",
@@ -41,39 +58,34 @@ export const library: {
     description: "Rubrik och stycke",
   },
   {
-    type: "split",
-    label: "Bild och text",
-    description: "Foto, rubrik och text",
-  },
-  {
-    type: "banner",
-    label: "Banner",
-    description: "Bakgrundsbild, liten rad och rubrik",
-  },
-  {
     type: "imageText",
-    label: "Text och bild",
-    description: "Överrad, rubrik och knapp med bild till vänster eller höger",
+    label: "Bild och text",
+    description: "Ett foto, överrad och knapp",
   },
   {
     type: "imagePair",
-    label: "Dubbelbild och text",
-    description: "Två överlappande foton, överrad, rubrik och knapp",
+    label: "Två bilder och text",
+    description: "Två överlappande foton",
+  },
+  {
+    type: "split",
+    label: "Bild och text (startsida)",
+    description: "Den äldre split-layouten",
   },
   {
     type: "sectionHeader",
     label: "Sektionsrubrik",
-    description: "Rubrik med linje, vänsterställd eller centrerad",
+    description: "Rubrik med linje",
+  },
+  {
+    type: "banner",
+    label: "Banner",
+    description: "Bakgrundsbild och rubrik",
   },
   {
     type: "highlight",
     label: "Highlight",
-    description: "Helbreddsbild med etikett, rubrik och knapp",
-  },
-  {
-    type: "lead",
-    label: "Ingress",
-    description: "Stor rubrik till vänster och stycke till höger",
+    description: "Helbild med knapp",
   },
 ];
 
@@ -85,6 +97,7 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
   text: {
     heading: "Lorem ipsum dolor sit amet",
     body: loremBody,
+    theme: "white",
   },
   split: {
     heading: "Lorem ipsum dolor",
@@ -102,6 +115,7 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     buttonHref: "/#kontakt",
     imageSide: "right",
     image: "/images/about.jpg",
+    theme: "sand",
   },
   imagePair: {
     heading: experienceHeading,
@@ -112,11 +126,13 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     imageSide: "left",
     image: "/images/news-2.jpg",
     image2: "/images/news-4.jpg",
+    theme: "sand",
   },
   sectionHeader: {
     heading: "Våra tjänster",
     body: "",
     align: "left",
+    theme: "white",
   },
   highlight: {
     heading: "Morning seminar",
@@ -128,6 +144,7 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
   lead: {
     heading: leadHeading,
     body: leadBody,
+    theme: "white",
   },
 };
 
@@ -154,35 +171,55 @@ export function blockHasImage(type: BlockType): boolean {
   );
 }
 
+export function blockHasTheme(type: BlockType): boolean {
+  return (
+    type === "imageText" ||
+    type === "imagePair" ||
+    type === "text" ||
+    type === "lead" ||
+    type === "sectionHeader"
+  );
+}
+
+export function resolveTheme(block: CmsBlock): BlockTheme {
+  if (block.theme) return block.theme;
+  if (block.type === "imageText" || block.type === "imagePair") {
+    return block.imageSide === "left" ? "mist" : "sand";
+  }
+  return "white";
+}
+
+const none: Omit<BlockFields, "heading" | "body"> = {
+  eyebrow: false,
+  image: false,
+  image2: false,
+  button: false,
+  imageSide: false,
+  align: false,
+  theme: false,
+};
+
 export function fieldsFor(type: BlockType): BlockFields {
   if (type === "banner") {
-    return {
-      heading: "Rubrik",
-      body: "Liten rad",
-      eyebrow: false,
-      image: true,
-      image2: false,
-      button: false,
-      imageSide: false,
-      align: false,
-    };
+    return { ...none, heading: "Rubrik", body: "Liten rad", image: true };
   }
 
   if (type === "imageText") {
     return {
+      ...none,
       heading: "Rubrik",
       body: null,
       eyebrow: true,
       image: true,
-      image2: false,
       button: true,
       imageSide: true,
-      align: false,
+      theme: true,
     };
   }
 
   if (type === "imagePair") {
     return {
+      ...none,
       heading: "Rubrik",
       body: null,
       eyebrow: true,
@@ -190,57 +227,26 @@ export function fieldsFor(type: BlockType): BlockFields {
       image2: true,
       button: true,
       imageSide: true,
-      align: false,
+      theme: true,
     };
   }
 
   if (type === "sectionHeader") {
-    return {
-      heading: "Rubrik",
-      body: null,
-      eyebrow: false,
-      image: false,
-      image2: false,
-      button: false,
-      imageSide: false,
-      align: true,
-    };
+    return { ...none, heading: "Rubrik", body: null, align: true, theme: true };
   }
 
   if (type === "highlight") {
-    return {
-      heading: "Rubrik",
-      body: "Liten rad",
-      eyebrow: false,
-      image: true,
-      image2: false,
-      button: true,
-      imageSide: false,
-      align: false,
-    };
+    return { ...none, heading: "Rubrik", body: "Liten rad", image: true, button: true };
   }
 
-  if (type === "lead") {
-    return {
-      heading: "Rubrik",
-      body: "Text",
-      eyebrow: false,
-      image: false,
-      image2: false,
-      button: false,
-      imageSide: false,
-      align: false,
-    };
+  if (type === "lead" || type === "text") {
+    return { ...none, heading: "Rubrik", body: "Text", theme: true };
   }
 
   return {
+    ...none,
     heading: "Rubrik",
     body: "Text",
-    eyebrow: false,
     image: blockHasImage(type),
-    image2: false,
-    button: false,
-    imageSide: false,
-    align: false,
   };
 }

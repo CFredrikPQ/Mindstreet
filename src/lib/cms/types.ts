@@ -11,6 +11,7 @@ export type BlockType =
 
 export type ImageSide = "left" | "right";
 export type BlockAlign = "left" | "center";
+export type BlockTheme = "sand" | "mist" | "cream" | "white";
 
 export type CmsBlock = {
   id: string;
@@ -24,6 +25,7 @@ export type CmsBlock = {
   buttonHref?: string;
   imageSide?: ImageSide;
   align?: BlockAlign;
+  theme?: BlockTheme;
 };
 
 export type CmsLink = {

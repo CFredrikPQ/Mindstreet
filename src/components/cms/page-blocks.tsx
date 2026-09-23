@@ -1,4 +1,5 @@
 import { Header } from "@/components/header";
+import { resolveTheme } from "@/lib/cms/library";
 import type { CmsBlock, CmsPage } from "@/lib/cms/types";
 import "./page-blocks.css";
 
@@ -55,10 +56,12 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
 
   if (block.type === "text") {
     return (
-      <section className="intro">
-        <h2>{block.heading}</h2>
-        <p>{block.body}</p>
-      </section>
+      <ThemedSurface block={block}>
+        <div className="intro">
+          <h2>{block.heading}</h2>
+          <p>{block.body}</p>
+        </div>
+      </ThemedSurface>
     );
   }
 
@@ -108,9 +111,10 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
 
   if (block.type === "imageText") {
     const side = block.imageSide === "left" ? "left" : "right";
+    const theme = resolveTheme(block);
     return (
-      <section className={`cms-media cms-media-${side === "left" ? "mist" : "sand"}`}>
-        {side === "left" ? <ModuleShape /> : null}
+      <section className={`cms-media cms-theme-${theme}`}>
+        {theme === "mist" ? <ModuleShape /> : null}
         <div className={`cms-media-inner is-image-${side}`}>
           {side === "left" ? <ModulePhoto src={block.image} /> : null}
           <ModuleCopy block={block} />
@@ -122,9 +126,10 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
 
   if (block.type === "imagePair") {
     const side = block.imageSide === "right" ? "right" : "left";
+    const theme = resolveTheme(block);
     return (
-      <section className={`cms-media cms-media-pair cms-media-pair-${side}`}>
-        {side === "left" ? <ModuleShape /> : null}
+      <section className={`cms-media cms-media-pair cms-theme-${theme}`}>
+        {theme === "mist" ? <ModuleShape /> : null}
         <div className={`cms-media-inner is-image-${side}`}>
           {side === "left" ? <PairPhotos block={block} /> : null}
           <ModuleCopy block={block} />
@@ -137,11 +142,13 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
   if (block.type === "sectionHeader") {
     const align = block.align === "center" ? "center" : "left";
     return (
-      <section className={`cms-divider is-${align}`}>
-        <div className="cms-divider-inner">
-          <h2>{block.heading}</h2>
+      <ThemedSurface block={block}>
+        <div className={`cms-divider is-${align}`}>
+          <div className="cms-divider-inner">
+            <h2>{block.heading}</h2>
+          </div>
         </div>
-      </section>
+      </ThemedSurface>
     );
   }
 
@@ -171,14 +178,32 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
 
   if (block.type === "lead") {
     return (
-      <section className="intro">
-        <h2>{block.heading}</h2>
-        <p>{block.body}</p>
-      </section>
+      <ThemedSurface block={block}>
+        <div className="intro">
+          <h2>{block.heading}</h2>
+          <p>{block.body}</p>
+        </div>
+      </ThemedSurface>
     );
   }
 
   return null;
+}
+
+function ThemedSurface({
+  block,
+  children,
+}: {
+  block: CmsBlock;
+  children: React.ReactNode;
+}) {
+  const theme = resolveTheme(block);
+  return (
+    <section className={`cms-surface cms-theme-${theme}`}>
+      {theme === "mist" ? <ModuleShape /> : null}
+      <div className="cms-surface-inner">{children}</div>
+    </section>
+  );
 }
 
 function ModuleShape() {
