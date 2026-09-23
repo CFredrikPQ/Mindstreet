@@ -758,6 +758,30 @@
   cursor: default;
 }
 
+.admin-locked-footer {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid rgba(36, 36, 36, 0.12);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.admin-locked-footer .admin-block-head {
+  margin-bottom: 6px;
+}
+
+.admin-locked-footer .admin-block-head span {
+  color: rgba(36, 36, 36, 0.55);
+  font-size: 13px;
+}
+
+.admin-locked-footer p {
+  margin: 0;
+  color: rgba(36, 36, 36, 0.62);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .admin-thumb {
   position: relative;
   display: block;

@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { HomeEditor } from "@/components/cms/home-editor";
+import { LockedFooterNote } from "@/components/cms/locked-footer";
 import { PageBlocks } from "@/components/cms/page-blocks";
 import { HOME_SELECTION, defaultHomeContent, loadHome, writeHome, type HomeContent } from "@/lib/cms/home";
 import {
@@ -644,6 +645,7 @@ export default function AdminPage() {
                           })}
                         </ol>
                       )}
+                      <LockedFooterNote />
                     </section>
 
                     <section className="admin-danger" aria-label="Ta bort sida">
@@ -794,6 +796,7 @@ export default function AdminPage() {
                         ))}
                       </ol>
                     )}
+                    <LockedFooterNote />
                   </div>
                 </section>
 
@@ -1025,6 +1028,7 @@ export default function AdminPage() {
                           ))}
                         </ol>
                       )}
+                      <LockedFooterNote />
                     </div>
                   ) : null}
                 </>
@@ -1178,7 +1182,11 @@ function PageMiniature({ page, url }: { page: CmsPage; url: string }) {
     <aside className="admin-miniature" aria-label="Förhandsvisning av sidan">
       <div className="admin-miniature-label">
         <p className="admin-kicker">Förhandsvisning</p>
-        <span>{count === 0 ? "Tom sida" : `${count} komponent${count === 1 ? "" : "er"}`}</span>
+        <span>
+          {count === 0
+            ? "Footer"
+            : `${count} komponent${count === 1 ? "" : "er"} och footer`}
+        </span>
       </div>
       <div className="admin-miniature-window">
         <div className="admin-miniature-chrome">

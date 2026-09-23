@@ -1,4 +1,5 @@
 import { Header } from "@/components/header";
+import { SiteFooter } from "@/components/site-footer";
 import { resolveTheme } from "@/lib/cms/library";
 import type { CmsBlock, CmsPage } from "@/lib/cms/types";
 import "./page-blocks.css";
@@ -29,6 +30,7 @@ export function PageBlocks({ page }: { page: CmsPage }) {
           </ul>
         </nav>
       ) : null}
+      <SiteFooter />
     </div>
   );
 }

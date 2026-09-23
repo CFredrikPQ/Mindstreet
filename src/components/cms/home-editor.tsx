@@ -1,5 +1,6 @@
 "use client";
 
+import { LockedFooterNote } from "@/components/cms/locked-footer";
 import type { HomeContent, HomeExpertiseItem } from "@/lib/cms/home";
 
 export function HomeEditor({
@@ -292,6 +293,7 @@ export function HomeEditor({
           />
         </label>
       </section>
+      <LockedFooterNote />
     </div>
   );
 }

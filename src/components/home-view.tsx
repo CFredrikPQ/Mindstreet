@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Header } from "@/components/header";
 import { Offering } from "@/components/offering";
-import { about as aboutFallback, footer, news } from "@/content/home";
+import { SiteFooter } from "@/components/site-footer";
+import { about as aboutFallback, news } from "@/content/home";
 import { defaultHomeContent, loadHome, type HomeContent } from "@/lib/cms/home";
 
 export function HomeView() {
@@ -133,32 +134,7 @@ export function HomeView() {
         </div>
       </section>
 
-      <footer className="site-footer" id="kontakt">
-        <img src="/icons/logo-footer.svg" width={165} height={32} alt="Mindstreet" />
-        <address>
-          {footer.address.map((line) => (
-            <span key={line}>{line}</span>
-          ))}
-          <a href={footer.phone.href}>{footer.phone.label}</a>
-          <a href={`mailto:${footer.email}`}>{footer.email}</a>
-        </address>
-        <a
-          className="linkedin"
-          href={footer.linkedIn}
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Mindstreet på LinkedIn"
-        >
-          <img src="/icons/linkedin.svg" width={47} height={47} alt="" />
-          <img
-            className="linkedin-mark"
-            src="/icons/linkedin-mark.svg"
-            width={22}
-            height={25}
-            alt=""
-          />
-        </a>
-      </footer>
+      <SiteFooter />
     </>
   );
 }
