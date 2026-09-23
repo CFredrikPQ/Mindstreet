@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { HomeEditor } from "@/components/cms/home-editor";
 import { LockedFooterNote } from "@/components/cms/locked-footer";
 import { PageBlocks } from "@/components/cms/page-blocks";
+import { HomeView } from "@/components/home-view";
 import { HOME_SELECTION, defaultHomeContent, loadHome, writeHome, type HomeContent } from "@/lib/cms/home";
 import {
   SITE_HOST,
@@ -665,6 +666,14 @@ export default function AdminPage() {
                     </section>
                   </section>
                 ) : null}
+
+                {homeSelected ? (
+                  <PageMiniature url={SITE_HOST} summary="Startsida och footer">
+                    <HomeView content={home} />
+                  </PageMiniature>
+                ) : selected ? (
+                  <PageMiniature url={`${SITE_HOST}/${selected.slug}`} page={selected} />
+                ) : null}
               </div>
           ) : null}
 
@@ -1150,11 +1159,21 @@ function DeletePageDialog({
   );
 }
 
-function PageMiniature({ page, url }: { page: CmsPage; url: string }) {
+function PageMiniature({
+  page,
+  url,
+  summary,
+  children,
+}: {
+  page?: CmsPage;
+  url: string;
+  summary?: string;
+  children?: ReactNode;
+}) {
   const frameRef = useRef<HTMLDivElement>(null);
-  const previousCount = useRef(page.blocks.length);
+  const count = page?.blocks.length ?? 0;
+  const previousCount = useRef(count);
   const [scale, setScale] = useState(0.32);
-  const count = page.blocks.length;
 
   useLayoutEffect(() => {
     const frame = frameRef.current;
@@ -1171,22 +1190,23 @@ function PageMiniature({ page, url }: { page: CmsPage; url: string }) {
 
   useLayoutEffect(() => {
     const frame = frameRef.current;
-    if (!frame) return;
+    if (!frame || !page) return;
     if (count > previousCount.current) {
       frame.scrollTo({ top: frame.scrollHeight, behavior: "smooth" });
     }
     previousCount.current = count;
-  }, [count]);
+  }, [count, page]);
+
+  const label =
+    summary ??
+    (count === 0 ? "Footer" : `${count} komponent${count === 1 ? "" : "er"} och footer`);
+  const showHint = Boolean(page) && count === 0;
 
   return (
     <aside className="admin-miniature" aria-label="Förhandsvisning av sidan">
       <div className="admin-miniature-label">
         <p className="admin-kicker">Förhandsvisning</p>
-        <span>
-          {count === 0
-            ? "Footer"
-            : `${count} komponent${count === 1 ? "" : "er"} och footer`}
-        </span>
+        <span>{label}</span>
       </div>
       <div className="admin-miniature-window">
         <div className="admin-miniature-chrome">
@@ -1196,7 +1216,7 @@ function PageMiniature({ page, url }: { page: CmsPage; url: string }) {
           <em>{url}</em>
         </div>
         <div
-          className={count === 0 ? "admin-miniature-frame is-empty" : "admin-miniature-frame"}
+          className={showHint ? "admin-miniature-frame is-empty" : "admin-miniature-frame"}
           ref={frameRef}
         >
           <div
@@ -1205,9 +1225,9 @@ function PageMiniature({ page, url }: { page: CmsPage; url: string }) {
             aria-hidden="true"
             style={{ width: PREVIEW_WIDTH, zoom: scale }}
           >
-            <PageBlocks page={page} />
+            {children ?? (page ? <PageBlocks page={page} /> : null)}
           </div>
-          {count === 0 ? (
+          {showHint ? (
             <p className="admin-miniature-hint">
               Lägg till en komponent så byggs sidan upp här.
             </p>

@@ -7,14 +7,16 @@ import { SiteFooter } from "@/components/site-footer";
 import { about as aboutFallback, news } from "@/content/home";
 import { defaultHomeContent, loadHome, type HomeContent } from "@/lib/cms/home";
 
-export function HomeView() {
-  const [content, setContent] = useState<HomeContent>(defaultHomeContent);
+export function HomeView({ content }: { content?: HomeContent }) {
+  const [stored, setStored] = useState<HomeContent>(defaultHomeContent);
+  const controlled = content !== undefined;
 
   useEffect(() => {
-    setContent(loadHome());
-  }, []);
+    if (controlled) return;
+    setStored(loadHome());
+  }, [controlled]);
 
-  const { hero, intro, expertise, about, seminar } = content;
+  const { hero, intro, expertise, about, seminar } = content ?? stored;
 
   return (
     <>
