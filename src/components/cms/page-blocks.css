@@ -1,0 +1,59 @@
+.cms-hero h1 {
+  max-width: 14ch;
+}
+
+.cms-hero-lead {
+  max-width: 36ch;
+  margin-top: 24px;
+  font-size: clamp(18px, 1.6vw, 22px);
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.cms-hero-fallback,
+.cms-banner-fallback {
+  position: absolute;
+  inset: 0;
+  background: var(--footer);
+}
+
+.cms-banner-fallback {
+  z-index: -2;
+}
+
+.cms-photo-fallback {
+  background: rgba(0, 43, 61, 0.18);
+}
+
+.cms-topbar {
+  display: flex;
+  align-items: center;
+  padding: 28px var(--gutter);
+  background: var(--navy);
+}
+
+.cms-missing {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 48px var(--gutter);
+  text-align: center;
+}
+
+.cms-missing h1 {
+  margin-bottom: 16px;
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 400;
+}
+
+.cms-missing p {
+  margin-bottom: 28px;
+  font-size: 18px;
+}
+
+.cms-missing-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
