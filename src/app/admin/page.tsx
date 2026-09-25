@@ -63,6 +63,19 @@ type Panel = "pages" | "create" | "components";
 
 const BLANK_TEMPLATE = "__blank__";
 
+function DragGrip() {
+  return (
+    <svg width="10" height="16" viewBox="0 0 10 16" aria-hidden="true">
+      <circle cx="2" cy="2.5" r="1.15" fill="currentColor" />
+      <circle cx="8" cy="2.5" r="1.15" fill="currentColor" />
+      <circle cx="2" cy="8" r="1.15" fill="currentColor" />
+      <circle cx="8" cy="8" r="1.15" fill="currentColor" />
+      <circle cx="2" cy="13.5" r="1.15" fill="currentColor" />
+      <circle cx="8" cy="13.5" r="1.15" fill="currentColor" />
+    </svg>
+  );
+}
+
 const panels: { id: Panel; kicker: string; title: string }[] = [
   { id: "pages", kicker: "Befintliga", title: "Publicerade sidor" },
   { id: "create", kicker: "Ny sida", title: "Skapa ny sida av mall" },
@@ -88,6 +101,10 @@ export default function AdminPage() {
   const [archive, setArchive] = useState<PageArchiveEntry[]>([]);
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const dragIndexRef = useRef<number | null>(null);
+  const dragOriginRef = useRef<number | null>(null);
   const pagesRef = useRef(pages);
   pagesRef.current = pages;
 
@@ -311,29 +328,32 @@ export default function AdminPage() {
     );
   }
 
-  function moveComponentBlock(index: number, direction: -1 | 1) {
-    const nextIndex = index + direction;
+  function applyBlockOrder(blocks: CmsBlock[], from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= blocks.length || to > blocks.length) return blocks;
+    const next = [...blocks];
+    const [item] = next.splice(from, 1);
+    const insertAt = from < to ? to - 1 : to;
+    next.splice(insertAt, 0, item);
+    return next;
+  }
+
+  function reorderComponentBlocks(from: number, to: number) {
+    if (from === to || from + 1 === to) return;
     if (blankMode) {
-      setBlankBlocks((current) => {
-        if (nextIndex < 0 || nextIndex >= current.length) return current;
-        const blocks = [...current];
-        const [item] = blocks.splice(index, 1);
-        blocks.splice(nextIndex, 0, item);
-        return blocks;
-      });
+      setBlankBlocks((current) => applyBlockOrder(current, from, to));
       return;
     }
-    if (!componentPage || nextIndex < 0 || nextIndex >= componentPage.blocks.length) return;
+    if (!componentPage) return;
     const slug = componentPage.slug;
     persist((current) =>
-      current.map((page) => {
-        if (page.slug !== slug) return page;
-        const blocks = [...page.blocks];
-        const [item] = blocks.splice(index, 1);
-        blocks.splice(nextIndex, 0, item);
-        return { ...page, blocks };
-      }),
+      current.map((page) =>
+        page.slug === slug ? { ...page, blocks: applyBlockOrder(page.blocks, from, to) } : page,
+      ),
     );
+  }
+
+  function moveComponentBlock(index: number, direction: -1 | 1) {
+    reorderComponentBlocks(index, index + direction < index ? index + direction : index + direction + 1);
   }
 
   function moveBlock(index: number, direction: -1 | 1) {
@@ -860,11 +880,85 @@ export default function AdminPage() {
                     {componentBlocks.length === 0 ? (
                       <p className="admin-empty">Inga komponenter på sidan ännu.</p>
                     ) : (
-                      <ol>
+                      <ol
+                        className={
+                          dropIndex === componentBlocks.length ? "is-drop-end" : undefined
+                        }
+                      >
                         {componentBlocks.map((block, index) => (
-                          <li key={block.id}>
+                          <li
+                            key={block.id}
+                            className={[
+                              "is-draggable",
+                              dragIndex === index ? "is-dragging" : "",
+                              dropIndex === index ? "is-drop-before" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            onPointerDown={(event) => {
+                              if (event.button !== 0) return;
+                              if ((event.target as HTMLElement).closest("button")) return;
+                              dragOriginRef.current = event.clientY;
+                              dragIndexRef.current = null;
+                              try {
+                                event.currentTarget.setPointerCapture(event.pointerId);
+                              } catch {
+                                // Pointer capture is unavailable for some synthetic drags.
+                              }
+                            }}
+                            onPointerMove={(event) => {
+                              if (dragOriginRef.current === null) return;
+                              if (dragIndexRef.current === null) {
+                                if (Math.abs(event.clientY - dragOriginRef.current) < 4) return;
+                                dragIndexRef.current = index;
+                                setDragIndex(index);
+                              }
+                              const rows = event.currentTarget.parentElement?.children;
+                              if (!rows) return;
+                              let next = rows.length;
+                              for (let i = 0; i < rows.length; i += 1) {
+                                const rect = (rows[i] as HTMLElement).getBoundingClientRect();
+                                if (event.clientY < rect.top + rect.height / 2) {
+                                  next = i;
+                                  break;
+                                }
+                              }
+                              setDropIndex((current) => (current === next ? current : next));
+                            }}
+                            onPointerUp={(event) => {
+                              const from = dragIndexRef.current;
+                              const rows = event.currentTarget.parentElement?.children;
+                              let to = rows?.length ?? index;
+                              if (rows) {
+                                for (let i = 0; i < rows.length; i += 1) {
+                                  const rect = (rows[i] as HTMLElement).getBoundingClientRect();
+                                  if (event.clientY < rect.top + rect.height / 2) {
+                                    to = i;
+                                    break;
+                                  }
+                                }
+                              }
+                              dragOriginRef.current = null;
+                              dragIndexRef.current = null;
+                              setDragIndex(null);
+                              setDropIndex(null);
+                              if (from === null) return;
+                              reorderComponentBlocks(from, to);
+                            }}
+                            onPointerCancel={() => {
+                              dragOriginRef.current = null;
+                              dragIndexRef.current = null;
+                              setDragIndex(null);
+                              setDropIndex(null);
+                            }}
+                          >
                             <div className="admin-block-head">
-                              <strong>{blockLabel(block.type)}</strong>
+                              <span className="admin-block-label">
+                                <span className="admin-drag-handle" aria-hidden="true">
+                                  <DragGrip />
+                                </span>
+                                <strong>{blockLabel(block.type)}</strong>
+                              </span>
                               <div>
                                 <button
                                   type="button"

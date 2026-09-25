@@ -691,6 +691,58 @@
   border-radius: 12px;
 }
 
+.admin-on-page li.is-draggable {
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.admin-on-page li.is-draggable:active {
+  cursor: grabbing;
+}
+
+.admin-on-page li.is-dragging {
+  opacity: 0.45;
+}
+
+.admin-on-page li.is-drop-before::before,
+.admin-on-page ol.is-drop-end::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--navy);
+  pointer-events: none;
+}
+
+.admin-on-page li.is-drop-before::before {
+  top: -7px;
+}
+
+.admin-on-page ol.is-drop-end {
+  position: relative;
+}
+
+.admin-on-page ol.is-drop-end::after {
+  bottom: -7px;
+}
+
+.admin-block-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-drag-handle {
+  display: inline-flex;
+  flex: none;
+  color: rgba(36, 36, 36, 0.4);
+}
+
 .admin-on-page .admin-block-head {
   margin-bottom: 0;
 }
