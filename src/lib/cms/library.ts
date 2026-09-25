@@ -183,6 +183,25 @@ export function createBlock(type: BlockType): CmsBlock {
   };
 }
 
+export function cloneTemplateBlocks(blocks: CmsBlock[]): CmsBlock[] {
+  return blocks.map((block) => {
+    const next: CmsBlock = {
+      id: crypto.randomUUID(),
+      type: block.type,
+      heading: "",
+      body: "",
+    };
+    if (block.imageSide) next.imageSide = block.imageSide;
+    if (block.align) next.align = block.align;
+    if (block.theme) next.theme = block.theme;
+    if (block.quote !== undefined) {
+      next.quote = "";
+      if (block.quoteAfter !== undefined) next.quoteAfter = block.quoteAfter;
+    }
+    return next;
+  });
+}
+
 export function blockLabel(type: BlockType): string {
   return library.find((item) => item.type === type)?.label ?? type;
 }

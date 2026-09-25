@@ -11,6 +11,7 @@ import {
   SITE_HOST,
   articleParagraphs,
   blockLabel,
+  cloneTemplateBlocks,
   createBlock,
   fieldsFor,
   library,
@@ -23,7 +24,6 @@ import {
   deletePagesToArchive,
   loadArchive,
   loadPages,
-  normalizeSlug,
   orderedPages,
   pagesRemovedWith,
   pageTitle,
@@ -34,28 +34,35 @@ import {
   writePages,
   type PageArchiveEntry,
 } from "@/lib/cms/storage";
-import type { BlockTheme, BlockType, CmsBlock, CmsLink, CmsPage } from "@/lib/cms/types";
+import type { BlockTheme, BlockType, CmsBlock, CmsPage } from "@/lib/cms/types";
 import "./admin.css";
 
-const MAX_IMAGE_BYTES = 1_000_000;
 const PREVIEW_WIDTH = 1280;
 
+let libraryImagesRequest: Promise<string[]> | null = null;
+
+function loadLibraryImages() {
+  if (!libraryImagesRequest) {
+    libraryImagesRequest = fetch("/api/library-images")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Kunde inte läsa bildbiblioteket.");
+        const data = (await response.json()) as { images?: string[] };
+        return data.images ?? [];
+      })
+      .catch((error) => {
+        libraryImagesRequest = null;
+        throw error;
+      });
+  }
+  return libraryImagesRequest;
+}
+
 type Panel = "pages" | "create" | "components";
-type DraftLink = { id: string; label: string; href: string };
-type DraftChild = { id: string; title: string; slug: string };
 
-function newDraftLink(): DraftLink {
-  return { id: crypto.randomUUID(), label: "", href: "" };
-}
-
-function newDraftChild(): DraftChild {
-  return { id: crypto.randomUUID(), title: "", slug: "" };
-}
-
-const panels: { id: Panel; label: string }[] = [
-  { id: "pages", label: "Sidor" },
-  { id: "create", label: "Skapa sidor" },
-  { id: "components", label: "Skapa komponenter" },
+const panels: { id: Panel; kicker: string; title: string }[] = [
+  { id: "pages", kicker: "Befintliga", title: "Publicerade sidor" },
+  { id: "create", kicker: "Ny sida", title: "Skapa ny sida av mall" },
+  { id: "components", kicker: "Bibliotek", title: "Skapa ny sidmall utifrån komponenter" },
 ];
 
 export default function AdminPage() {
@@ -63,12 +70,10 @@ export default function AdminPage() {
   const [home, setHome] = useState<HomeContent>(defaultHomeContent);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(HOME_SELECTION);
   const [panel, setPanel] = useState<Panel>("pages");
-  const [slugInput, setSlugInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
   const [parentSlug, setParentSlug] = useState("");
   const [draftBlocks, setDraftBlocks] = useState<CmsBlock[]>([]);
-  const [draftLinks, setDraftLinks] = useState<DraftLink[]>([]);
-  const [draftChildren, setDraftChildren] = useState<DraftChild[]>([]);
+  const [templateSlug, setTemplateSlug] = useState<string | null>(null);
   const [published, setPublished] = useState(true);
   const [lastSavedSlug, setLastSavedSlug] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -89,10 +94,11 @@ export default function AdminPage() {
   const homeSelected = selectedSlug === HOME_SELECTION;
   const selected = homeSelected ? null : pages.find((page) => page.slug === selectedSlug) ?? null;
   const listedPages = orderedPages(pages);
+  const templatePage = listedPages.find((page) => page.slug === templateSlug) ?? null;
   const pendingDelete = deleteSlug ? pages.find((page) => page.slug === deleteSlug) ?? null : null;
   const pendingRemoved = deleteSlug ? pagesRemovedWith(deleteSlug, pages) : [];
   const parents = rootPages(pages);
-  const previewSlug = composeSlug(parentSlug || undefined, slugInput || slugifyTitle(titleInput));
+  const previewSlug = composeSlug(parentSlug || undefined, slugifyTitle(titleInput));
 
   function persist(updater: (current: CmsPage[]) => CmsPage[]) {
     const next = updater(pagesRef.current);
@@ -119,12 +125,18 @@ export default function AdminPage() {
 
   function resetCreateForm() {
     setTitleInput("");
-    setSlugInput("");
     setParentSlug("");
-    setDraftBlocks([]);
-    setDraftLinks([]);
-    setDraftChildren([]);
     setPublished(true);
+    const template = pagesRef.current.find((page) => page.slug === templateSlug);
+    setDraftBlocks(template ? cloneTemplateBlocks(template.blocks) : []);
+  }
+
+  function chooseTemplate(slug: string) {
+    if (slug === templateSlug) return;
+    const template = pagesRef.current.find((page) => page.slug === slug);
+    setTemplateSlug(slug);
+    setDraftBlocks(template ? cloneTemplateBlocks(template.blocks) : []);
+    setNotice(null);
   }
 
   function createPage(event: FormEvent) {
@@ -135,8 +147,13 @@ export default function AdminPage() {
       return;
     }
 
+    if (!templateSlug || !pagesRef.current.some((page) => page.slug === templateSlug)) {
+      setNotice("Välj en sidmall till vänster.");
+      return;
+    }
+
     const parent = parentSlug || undefined;
-    const segment = normalizeSlug(slugInput) || slugifyTitle(title);
+    const segment = slugifyTitle(title);
     const slug = composeSlug(parent, segment);
     const current = pagesRef.current;
     const slugError = validateSlug(slug, current);
@@ -150,61 +167,15 @@ export default function AdminPage() {
       return;
     }
 
-    const links: CmsLink[] = [];
-    for (const row of draftLinks) {
-      const label = row.label.trim();
-      const href = row.href.trim();
-      if (!label && !href) continue;
-      if (!label || !href) {
-        setNotice("Fyll i både länktext och adress, eller ta bort raden.");
-        return;
-      }
-      links.push({ label, href });
-    }
-
-    const children: CmsPage[] = [];
-    if (!parent) {
-      const taken = new Set(current.map((page) => page.slug));
-      taken.add(slug);
-      for (const row of draftChildren) {
-        const childTitle = row.title.trim();
-        const childSegment = normalizeSlug(row.slug) || slugifyTitle(childTitle);
-        if (!childTitle && !childSegment) continue;
-        if (!childTitle) {
-          setNotice("Skriv ett namn för varje undersida.");
-          return;
-        }
-        const childSlug = composeSlug(slug, childSegment);
-        const childError = validateSlug(childSlug, current);
-        if (childError) {
-          setNotice(`${childTitle}: ${childError}`);
-          return;
-        }
-        if (taken.has(childSlug)) {
-          setNotice("Undersidorna måste ha unika sökvägar.");
-          return;
-        }
-        taken.add(childSlug);
-        children.push({
-          slug: childSlug,
-          title: childTitle,
-          parentSlug: slug,
-          published,
-          links: [],
-          blocks: [],
-        });
-      }
-    }
-
     const page: CmsPage = {
       slug,
       title,
       parentSlug: parent,
       published,
-      links,
+      links: [],
       blocks: draftBlocks,
     };
-    const saved = persist((pages) => [...pages, page, ...children]);
+    const saved = persist((pages) => [...pages, page]);
     if (!saved) return;
     setSelectedSlug(page.slug);
     setLastSavedSlug(page.slug);
@@ -311,24 +282,10 @@ export default function AdminPage() {
     );
   }
 
-  function onImage(id: string, file: File | undefined, field: "image" | "image2" = "image") {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setNotice("Välj en bildfil.");
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setNotice("Bilden får vara högst 1 MB.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        updateBlock(id, { [field]: reader.result });
-      }
-    };
-    reader.readAsDataURL(file);
+  function updateDraftBlock(id: string, patch: Partial<CmsBlock>) {
+    setDraftBlocks((current) =>
+      current.map((block) => (block.id === id ? { ...block, ...patch } : block)),
+    );
   }
 
   return (
@@ -341,8 +298,8 @@ export default function AdminPage() {
               key={item.id}
               type="button"
               className={panel === item.id ? "is-active" : undefined}
-              data-label={item.label}
-              aria-label={item.label}
+              data-label={item.title}
+              aria-label={item.title}
               aria-current={panel === item.id ? "page" : undefined}
               onClick={() => {
                 setPanel(item.id);
@@ -366,10 +323,10 @@ export default function AdminPage() {
 
         <main className="admin-main">
           {panel === "pages" ? (
+              <div className="admin-panel">
+                <PageHeading kicker="Befintliga" title="Publicerade sidor" />
               <div className="admin-pages-layout">
                 <section aria-label="Befintliga sidor">
-                  <p className="admin-kicker">Befintliga</p>
-                  <h2 className="admin-title">Sidor</h2>
                   <ul className="admin-page-list">
                     <li>
                       <button
@@ -486,13 +443,11 @@ export default function AdminPage() {
                       <h3>Sidan</h3>
                       {selected.blocks.length === 0 ? (
                         <p className="admin-empty">
-                          Inga komponenter ännu. Lägg till ett block under Skapa komponenter.
+                          Inga komponenter ännu. Lägg till ett block under Skapa ny sidmall utifrån komponenter.
                         </p>
                       ) : (
                         <ol>
-                          {selected.blocks.map((block, index) => {
-                            const fields = fieldsFor(block.type);
-                            return (
+                          {selected.blocks.map((block, index) => (
                               <li key={block.id}>
                                 <div className="admin-block-head">
                                   <strong>{blockLabel(block.type)}</strong>
@@ -516,176 +471,14 @@ export default function AdminPage() {
                                     </button>
                                   </div>
                                 </div>
-                                {fields.theme ? (
-                                  <ColorSwatch
-                                    value={resolveTheme(block)}
-                                    onChange={(theme) => updateBlock(block.id, { theme })}
-                                  />
-                                ) : null}
-                                {fields.eyebrow ? (
-                                  <label>
-                                    Överrad
-                                    <input
-                                      value={block.eyebrow ?? ""}
-                                      onChange={(event) =>
-                                        updateBlock(block.id, { eyebrow: event.target.value })
-                                      }
-                                    />
-                                  </label>
-                                ) : null}
-                                {fields.heading ? (
-                                  <label>
-                                    {fields.heading}
-                                    {block.type === "lead" ? (
-                                      <textarea
-                                        rows={4}
-                                        value={block.heading}
-                                        onChange={(event) =>
-                                          updateBlock(block.id, { heading: event.target.value })
-                                        }
-                                      />
-                                    ) : (
-                                      <input
-                                        value={block.heading}
-                                        onChange={(event) =>
-                                          updateBlock(block.id, { heading: event.target.value })
-                                        }
-                                      />
-                                    )}
-                                  </label>
-                                ) : null}
-                                {fields.body ? (
-                                  block.type === "article" ? (
-                                    <FormattedText
-                                      label={fields.body}
-                                      rows={8}
-                                      value={block.body}
-                                      onChange={(body) => updateBlock(block.id, { body })}
-                                    />
-                                  ) : (
-                                    <label>
-                                      {fields.body}
-                                      <textarea
-                                        rows={block.type === "banner" || block.type === "highlight" ? 2 : 5}
-                                        value={block.body}
-                                        onChange={(event) =>
-                                          updateBlock(block.id, { body: event.target.value })
-                                        }
-                                      />
-                                    </label>
-                                  )
-                                ) : null}
-                                {fields.quote ? (
-                                  <>
-                                    <label className="admin-check">
-                                      <input
-                                        type="checkbox"
-                                        checked={block.quote !== undefined}
-                                        onChange={(event) =>
-                                          updateBlock(block.id, {
-                                            quote: event.target.checked ? block.quote ?? "" : undefined,
-                                            quoteAfter: event.target.checked ? block.quoteAfter ?? 0 : undefined,
-                                          })
-                                        }
-                                      />
-                                      Citat i texten
-                                    </label>
-                                    {block.quote !== undefined ? (
-                                      <>
-                                        <FormattedText
-                                          label="Citat"
-                                          rows={3}
-                                          value={block.quote}
-                                          onChange={(quote) => updateBlock(block.id, { quote })}
-                                        />
-                                        <QuotePlacement
-                                          body={block.body}
-                                          value={block.quoteAfter}
-                                          onChange={(quoteAfter) => updateBlock(block.id, { quoteAfter })}
-                                        />
-                                      </>
-                                    ) : null}
-                                  </>
-                                ) : null}
-                                {fields.button ? (
-                                  <>
-                                    <label>
-                                      Knapp
-                                      <input
-                                        value={block.buttonLabel ?? ""}
-                                        onChange={(event) =>
-                                          updateBlock(block.id, { buttonLabel: event.target.value })
-                                        }
-                                      />
-                                    </label>
-                                    <label>
-                                      Länk
-                                      <input
-                                        value={block.buttonHref ?? ""}
-                                        onChange={(event) =>
-                                          updateBlock(block.id, { buttonHref: event.target.value })
-                                        }
-                                      />
-                                    </label>
-                                  </>
-                                ) : null}
-                                {fields.imageSide || fields.align ? (
-                                  <div className="admin-field-row">
-                                    {fields.imageSide ? (
-                                      <label>
-                                        Bildsida
-                                        <select
-                                          value={block.imageSide ?? "left"}
-                                          onChange={(event) =>
-                                            updateBlock(block.id, {
-                                              imageSide: event.target.value as CmsBlock["imageSide"],
-                                            })
-                                          }
-                                        >
-                                          <option value="left">Vänster</option>
-                                          <option value="right">Höger</option>
-                                        </select>
-                                      </label>
-                                    ) : null}
-                                    {fields.align ? (
-                                      <label>
-                                        Justering
-                                        <select
-                                          value={block.align ?? "left"}
-                                          onChange={(event) =>
-                                            updateBlock(block.id, {
-                                              align: event.target.value as CmsBlock["align"],
-                                            })
-                                          }
-                                        >
-                                          <option value="left">Vänster</option>
-                                          <option value="center">Centrerad</option>
-                                        </select>
-                                      </label>
-                                    ) : null}
-                                  </div>
-                                ) : null}
-                                {fields.image ? (
-                                  <ImageField
-                                    src={block.image}
-                                    emptyLabel="Ingen bild vald."
-                                    chooseLabel={block.image ? "Byt bild" : "Välj bild"}
-                                    onChoose={(file) => onImage(block.id, file, "image")}
-                                    onClear={() => updateBlock(block.id, { image: undefined })}
-                                  />
-                                ) : null}
-                                {fields.image2 ? (
-                                  <ImageField
-                                    src={block.image2}
-                                    emptyLabel="Ingen andra bild vald."
-                                    chooseLabel={block.image2 ? "Byt andra bilden" : "Välj andra bilden"}
-                                    onChoose={(file) => onImage(block.id, file, "image2")}
-                                    onClear={() => updateBlock(block.id, { image2: undefined })}
-                                  />
-                                ) : null}
+                                <BlockFieldsEditor
+                                  block={block}
+                                  quoteMode="toggle"
+                                  onChange={(patch) => updateBlock(block.id, patch)}
+                                  onImage={(src, field) => updateBlock(block.id, { [field]: src })}
+                                />
                               </li>
-                            );
-                          })}
+                            ))}
                         </ol>
                       )}
                       <LockedFooterNote />
@@ -717,330 +510,179 @@ export default function AdminPage() {
                   <PageMiniature url={`${SITE_HOST}/${selected.slug}`} page={selected} />
                 ) : null}
               </div>
+              </div>
           ) : null}
 
           {panel === "create" ? (
-            <div className="admin-create-layout">
-            <div className="admin-builder">
-              <p className="admin-kicker">Ny sida</p>
-              <h2 className="admin-title">Skapa sida</h2>
-              <form onSubmit={createPage}>
-                <section className="admin-card">
-                  <div className="admin-card-head">
-                    <h3>Sida</h3>
-                  </div>
-                  <div className="admin-card-body">
-                    <label htmlFor="page-title">Sidnamn</label>
-                    <input
-                      id="page-title"
-                      value={titleInput}
-                      onChange={(event) => setTitleInput(event.target.value)}
-                      placeholder="Våra expertområden"
-                      autoFocus
-                    />
-                    <label htmlFor="page-slug">URL</label>
-                    <div className="admin-url">
-                      <span>
-                        {SITE_HOST}
-                        {parentSlug ? `/${parentSlug}` : ""}
-                      </span>
-                      <input
-                        id="page-slug"
-                        value={slugInput}
-                        onChange={(event) => setSlugInput(event.target.value)}
-                        placeholder="expertomraden"
-                      />
-                    </div>
-                    <label htmlFor="page-parent">Förälder</label>
-                    <select
-                      id="page-parent"
-                      value={parentSlug}
-                      onChange={(event) => setParentSlug(event.target.value)}
-                    >
-                      <option value="">Ingen</option>
-                      {parents.map((page) => (
-                        <option key={page.slug} value={page.slug}>
-                          {pageTitle(page)}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="admin-preview">
-                      {previewSlug ? `${SITE_HOST}/${previewSlug}` : `${SITE_HOST}/`}
-                    </p>
-                  </div>
-                </section>
-
-                <section className="admin-card">
-                  <div className="admin-card-head">
-                    <h3>Innehåll</h3>
-                  </div>
-                  <div className="admin-card-body">
-                    <BlockCatalog
-                      onAdd={(type) =>
-                        setDraftBlocks((current) => [...current, createBlock(type)])
-                      }
-                    />
-                    {draftBlocks.length === 0 ? (
-                      <p className="admin-empty">Inga komponenter ännu. Välj ett block ovan.</p>
-                    ) : (
-                      <ol className="admin-draft-list">
-                        {draftBlocks.map((block, index) => (
-                          <li key={block.id}>
-                            <div className="admin-draft-main">
-                              <strong>{blockLabel(block.type)}</strong>
-                              <div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setDraftBlocks((current) => {
-                                      if (index === 0) return current;
-                                      const next = [...current];
-                                      const [item] = next.splice(index, 1);
-                                      next.splice(index - 1, 0, item);
-                                      return next;
-                                    })
-                                  }
-                                  disabled={index === 0}
-                                >
-                                  Upp
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setDraftBlocks((current) => {
-                                      if (index === current.length - 1) return current;
-                                      const next = [...current];
-                                      const [item] = next.splice(index, 1);
-                                      next.splice(index + 1, 0, item);
-                                      return next;
-                                    })
-                                  }
-                                  disabled={index === draftBlocks.length - 1}
-                                >
-                                  Ner
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setDraftBlocks((current) =>
-                                      current.filter((item) => item.id !== block.id),
-                                    )
-                                  }
-                                >
-                                  Ta bort
-                                </button>
-                              </div>
-                            </div>
-                            {fieldsFor(block.type).theme ? (
-                              <ColorSwatch
-                                value={resolveTheme(block)}
-                                onChange={(theme) =>
-                                  setDraftBlocks((current) =>
-                                    current.map((item) =>
-                                      item.id === block.id ? { ...item, theme } : item,
-                                    ),
-                                  )
-                                }
-                              />
-                            ) : null}
-                          </li>
-                        ))}
-                      </ol>
-                    )}
-                    <LockedFooterNote />
-                  </div>
-                </section>
-
-                <section className="admin-card">
-                  <div className="admin-card-head">
-                    <h3>Länkar</h3>
-                  </div>
-                  <div className="admin-card-body">
-                    {draftLinks.length === 0 ? (
-                      <p className="admin-empty">Inga länkar ännu.</p>
-                    ) : (
-                      draftLinks.map((row) => (
-                        <div className="admin-row" key={row.id}>
-                          <label>
-                            Länktext
-                            <input
-                              value={row.label}
-                              onChange={(event) =>
-                                setDraftLinks((current) =>
-                                  current.map((item) =>
-                                    item.id === row.id
-                                      ? { ...item, label: event.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              placeholder="Läs mer"
-                            />
-                          </label>
-                          <label>
-                            Adress
-                            <input
-                              value={row.href}
-                              onChange={(event) =>
-                                setDraftLinks((current) =>
-                                  current.map((item) =>
-                                    item.id === row.id
-                                      ? { ...item, href: event.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              placeholder="/kontakt"
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            className="admin-quiet"
-                            onClick={() =>
-                              setDraftLinks((current) =>
-                                current.filter((item) => item.id !== row.id),
-                              )
-                            }
-                          >
-                            Ta bort
-                          </button>
-                        </div>
-                      ))
-                    )}
-                    <button
-                      type="button"
-                      className="admin-quiet"
-                      onClick={() => setDraftLinks((current) => [...current, newDraftLink()])}
-                    >
-                      Lägg till länk
-                    </button>
-                  </div>
-                </section>
-
-                {parentSlug ? null : (
-                  <section className="admin-card">
-                    <div className="admin-card-head">
-                      <h3>Undersidor</h3>
-                    </div>
-                    <div className="admin-card-body">
-                      {draftChildren.length === 0 ? (
-                        <p className="admin-empty">Inga undersidor ännu.</p>
-                      ) : (
-                        draftChildren.map((row) => (
-                          <div className="admin-row" key={row.id}>
-                            <label>
-                              Namn
-                              <input
-                                value={row.title}
-                                onChange={(event) =>
-                                  setDraftChildren((current) =>
-                                    current.map((item) =>
-                                      item.id === row.id
-                                        ? { ...item, title: event.target.value }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                                placeholder="AML"
-                              />
-                            </label>
-                            <label>
-                              Sökväg
-                              <input
-                                value={row.slug}
-                                onChange={(event) =>
-                                  setDraftChildren((current) =>
-                                    current.map((item) =>
-                                      item.id === row.id
-                                        ? { ...item, slug: event.target.value }
-                                        : item,
-                                    ),
-                                  )
-                                }
-                                placeholder="aml"
-                              />
-                            </label>
-                            <button
-                              type="button"
-                              className="admin-quiet"
-                              onClick={() =>
-                                setDraftChildren((current) =>
-                                  current.filter((item) => item.id !== row.id),
-                                )
-                              }
-                            >
-                              Ta bort
-                            </button>
-                          </div>
-                        ))
-                      )}
-                      <button
-                        type="button"
-                        className="admin-quiet"
-                        onClick={() =>
-                          setDraftChildren((current) => [...current, newDraftChild()])
-                        }
+            <div className="admin-panel">
+              <PageHeading kicker="Ny sida" title="Skapa ny sida av mall" />
+              {listedPages.length === 0 ? (
+                <p className="admin-empty">
+                  Skapa en sidmall under Skapa ny sidmall utifrån komponenter.
+                </p>
+              ) : (
+                <div className="admin-pages-layout is-create">
+                  <section aria-label="Sidmallar">
+                    <label className="admin-pick" htmlFor="create-template">
+                      Sida
+                      <select
+                        id="create-template"
+                        value={templateSlug ?? ""}
+                        onChange={(event) => {
+                          const slug = event.target.value;
+                          if (slug) chooseTemplate(slug);
+                        }}
                       >
-                        Lägg till undersida
-                      </button>
-                    </div>
-                  </section>
-                )}
-
-                <section className="admin-card">
-                  <div className="admin-card-head">
-                    <h3>Spara</h3>
-                  </div>
-                  <div className="admin-card-body admin-save">
-                    <label className="admin-check">
-                      <input
-                        type="checkbox"
-                        checked={published}
-                        onChange={(event) => setPublished(event.target.checked)}
-                      />
-                      Publicera
+                        <option value="" disabled>
+                          Välj mall
+                        </option>
+                        {listedPages.map((page) => (
+                          <option key={page.slug} value={page.slug}>
+                            {page.parentSlug ? `– ${pageTitle(page)}` : pageTitle(page)}
+                          </option>
+                        ))}
+                      </select>
                     </label>
-                    <div className="admin-create-actions">
-                      <button type="submit" className="admin-primary">
-                        Spara sida
-                      </button>
-                      {lastSavedSlug ? (
-                        <a
-                          className="admin-quiet"
-                          href={`/${lastSavedSlug}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Öppna sida
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
-                </section>
-              </form>
-            </div>
-            <PageMiniature
-              url={previewSlug ? `${SITE_HOST}/${previewSlug}` : SITE_HOST}
-              page={{
-                slug: previewSlug || "ny-sida",
-                title: titleInput.trim() || "Ny sida",
-                parentSlug: parentSlug || undefined,
-                published,
-                links: draftLinks.flatMap((row) => {
-                  const label = row.label.trim();
-                  const href = row.href.trim();
-                  return label && href ? [{ label, href }] : [];
-                }),
-                blocks: draftBlocks,
-              }}
-            />
+                    {templatePage ? (
+                      <div className="admin-on-page">
+                        <h3>På {pageTitle(templatePage)}</h3>
+                        {templatePage.blocks.length === 0 ? (
+                          <p className="admin-empty">Mallen har inga komponenter ännu.</p>
+                        ) : (
+                          <ol>
+                            {templatePage.blocks.map((block) => (
+                              <li key={block.id}>
+                                <strong>{blockLabel(block.type)}</strong>
+                                <span>{block.heading}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                        <LockedFooterNote />
+                      </div>
+                    ) : null}
+                  </section>
+
+                  {templatePage ? (
+                    <section aria-label="Ny sida">
+                      <form onSubmit={createPage}>
+                        <div className="admin-main-head">
+                          <div>
+                            <p className="admin-kicker">Ny sida</p>
+                            <h2 className="admin-title">{titleInput.trim() || "Ny sida"}</h2>
+                            <p className="admin-preview">
+                              {previewSlug ? `${SITE_HOST}/${previewSlug}` : `${SITE_HOST}/`}
+                            </p>
+                          </div>
+                          <div className="admin-main-actions">
+                            <div className="admin-action-row">
+                              <label className="admin-check">
+                                <input
+                                  type="checkbox"
+                                  checked={published}
+                                  onChange={(event) => setPublished(event.target.checked)}
+                                />
+                                Publicera
+                              </label>
+                              <button type="submit" className="admin-primary">
+                                Spara sida
+                              </button>
+                              {lastSavedSlug ? (
+                                <a
+                                  className="admin-quiet"
+                                  href={`/${lastSavedSlug}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Öppna sida
+                                </a>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="admin-create-fields">
+                          <label htmlFor="page-title">
+                            Sidnamn
+                            <input
+                              id="page-title"
+                              value={titleInput}
+                              onChange={(event) => setTitleInput(event.target.value)}
+                              placeholder="Våra expertområden"
+                              autoFocus
+                            />
+                          </label>
+                          <p className="admin-derived-url">
+                            <span>URL</span>
+                            {previewSlug ? `${SITE_HOST}/${previewSlug}` : `${SITE_HOST}/`}
+                          </p>
+                          <label htmlFor="page-parent">
+                            Förälder
+                            <select
+                              id="page-parent"
+                              value={parentSlug}
+                              onChange={(event) => setParentSlug(event.target.value)}
+                            >
+                              <option value="">Ingen</option>
+                              {parents.map((page) => (
+                                <option key={page.slug} value={page.slug}>
+                                  {pageTitle(page)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+
+                        <section className="admin-canvas" aria-label="Sidans block">
+                          <h3>Sidan</h3>
+                          {draftBlocks.length === 0 ? (
+                            <p className="admin-empty">Mallen har inga komponenter ännu.</p>
+                          ) : (
+                            <ol>
+                              {draftBlocks.map((block) => (
+                                <li key={block.id}>
+                                  <div className="admin-block-head">
+                                    <strong>{blockLabel(block.type)}</strong>
+                                  </div>
+                                  <BlockFieldsEditor
+                                    block={block}
+                                    quoteMode="locked"
+                                    onChange={(patch) => updateDraftBlock(block.id, patch)}
+                                    onImage={(src, field) => updateDraftBlock(block.id, { [field]: src })}
+                                  />
+                                </li>
+                              ))}
+                            </ol>
+                          )}
+                          <LockedFooterNote />
+                        </section>
+                      </form>
+                    </section>
+                  ) : (
+                    <section aria-label="Ny sida">
+                      <p className="admin-empty">Välj en sidmall till vänster.</p>
+                    </section>
+                  )}
+
+                  <PageMiniature
+                    url={previewSlug ? `${SITE_HOST}/${previewSlug}` : SITE_HOST}
+                    page={{
+                      slug: previewSlug || "ny-sida",
+                      title: titleInput.trim() || "Ny sida",
+                      parentSlug: parentSlug || undefined,
+                      published,
+                      links: [],
+                      blocks: templatePage ? draftBlocks : [],
+                    }}
+                  />
+                </div>
+              )}
             </div>
           ) : null}
 
           {panel === "components" ? (
-            <div>
-              <p className="admin-kicker">Bibliotek</p>
-              <h2 className="admin-title">Skapa komponenter</h2>
+            <div className="admin-panel">
+              <PageHeading kicker="Bibliotek" title="Skapa ny sidmall utifrån komponenter" />
               {pages.length === 0 ? (
                 <p className="admin-empty">Skapa en sida först. Sedan kan du lägga till block.</p>
               ) : (
@@ -1103,6 +745,183 @@ export default function AdminPage() {
         />
       ) : null}
     </div>
+  );
+}
+
+function PageHeading({ kicker, title }: { kicker: string; title: string }) {
+  return (
+    <header className="admin-page-head">
+      <p className="admin-kicker">{kicker}</p>
+      <h2 className="admin-title">{title}</h2>
+    </header>
+  );
+}
+
+function BlockFieldsEditor({
+  block,
+  onChange,
+  onImage,
+  quoteMode,
+}: {
+  block: CmsBlock;
+  onChange: (patch: Partial<CmsBlock>) => void;
+  onImage: (src: string, field: "image" | "image2") => void;
+  quoteMode: "toggle" | "locked";
+}) {
+  const fields = fieldsFor(block.type);
+  const quoteFields =
+    block.quote !== undefined ? (
+      <>
+        <FormattedText
+          label="Citat"
+          rows={3}
+          value={block.quote}
+          onChange={(quote) => onChange({ quote })}
+        />
+        <QuotePlacement
+          body={block.body}
+          value={block.quoteAfter}
+          onChange={(quoteAfter) => onChange({ quoteAfter })}
+        />
+      </>
+    ) : null;
+
+  return (
+    <>
+      {fields.theme ? (
+        <ColorSwatch value={resolveTheme(block)} onChange={(theme) => onChange({ theme })} />
+      ) : null}
+      {fields.eyebrow ? (
+        <label>
+          Överrad
+          <input
+            value={block.eyebrow ?? ""}
+            onChange={(event) => onChange({ eyebrow: event.target.value })}
+          />
+        </label>
+      ) : null}
+      {fields.heading ? (
+        <label>
+          {fields.heading}
+          {block.type === "lead" ? (
+            <textarea
+              rows={4}
+              value={block.heading}
+              onChange={(event) => onChange({ heading: event.target.value })}
+            />
+          ) : (
+            <input
+              value={block.heading}
+              onChange={(event) => onChange({ heading: event.target.value })}
+            />
+          )}
+        </label>
+      ) : null}
+      {fields.body ? (
+        block.type === "article" ? (
+          <FormattedText
+            label={fields.body}
+            rows={8}
+            value={block.body}
+            onChange={(body) => onChange({ body })}
+          />
+        ) : (
+          <label>
+            {fields.body}
+            <textarea
+              rows={block.type === "banner" || block.type === "highlight" ? 2 : 5}
+              value={block.body}
+              onChange={(event) => onChange({ body: event.target.value })}
+            />
+          </label>
+        )
+      ) : null}
+      {fields.quote && quoteMode === "toggle" ? (
+        <>
+          <label className="admin-check">
+            <input
+              type="checkbox"
+              checked={block.quote !== undefined}
+              onChange={(event) =>
+                onChange({
+                  quote: event.target.checked ? block.quote ?? "" : undefined,
+                  quoteAfter: event.target.checked ? block.quoteAfter ?? 0 : undefined,
+                })
+              }
+            />
+            Citat i texten
+          </label>
+          {quoteFields}
+        </>
+      ) : null}
+      {fields.quote && quoteMode === "locked" ? quoteFields : null}
+      {fields.button ? (
+        <>
+          <label>
+            Knapp
+            <input
+              value={block.buttonLabel ?? ""}
+              onChange={(event) => onChange({ buttonLabel: event.target.value })}
+            />
+          </label>
+          <label>
+            Länk
+            <input
+              value={block.buttonHref ?? ""}
+              onChange={(event) => onChange({ buttonHref: event.target.value })}
+            />
+          </label>
+        </>
+      ) : null}
+      {fields.imageSide || fields.align ? (
+        <div className="admin-field-row">
+          {fields.imageSide ? (
+            <label>
+              Bildsida
+              <select
+                value={block.imageSide ?? "left"}
+                onChange={(event) =>
+                  onChange({ imageSide: event.target.value as CmsBlock["imageSide"] })
+                }
+              >
+                <option value="left">Vänster</option>
+                <option value="right">Höger</option>
+              </select>
+            </label>
+          ) : null}
+          {fields.align ? (
+            <label>
+              Justering
+              <select
+                value={block.align ?? "left"}
+                onChange={(event) => onChange({ align: event.target.value as CmsBlock["align"] })}
+              >
+                <option value="left">Vänster</option>
+                <option value="center">Centrerad</option>
+              </select>
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+      {fields.image ? (
+        <ImageField
+          src={block.image}
+          emptyLabel="Ingen bild vald."
+          chooseLabel={block.image ? "Byt bild" : "Välj bild"}
+          onChoose={(src) => onImage(src, "image")}
+          onClear={() => onChange({ image: undefined })}
+        />
+      ) : null}
+      {fields.image2 ? (
+        <ImageField
+          src={block.image2}
+          emptyLabel="Ingen andra bild vald."
+          chooseLabel={block.image2 ? "Byt andra bilden" : "Välj andra bilden"}
+          onChoose={(src) => onImage(src, "image2")}
+          onClear={() => onChange({ image2: undefined })}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -1222,7 +1041,9 @@ function PageMiniature({
     if (!frame) return;
     const measure = () => {
       const width = frame.clientWidth;
-      if (width > 0) setScale(width / PREVIEW_WIDTH);
+      if (width <= 0) return;
+      const next = width / PREVIEW_WIDTH;
+      setScale((current) => (Math.abs(current - next) < 0.002 ? current : next));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -1232,12 +1053,12 @@ function PageMiniature({
 
   useLayoutEffect(() => {
     const frame = frameRef.current;
-    if (!frame || !page) return;
-    if (count > previousCount.current) {
-      frame.scrollTo({ top: frame.scrollHeight, behavior: "smooth" });
-    }
+    if (!frame) return;
+    const added = count - previousCount.current;
     previousCount.current = count;
-  }, [count, page]);
+    if (added !== 1) return;
+    frame.scrollTo({ top: frame.scrollHeight, behavior: "smooth" });
+  }, [count]);
 
   const label =
     summary ??
@@ -1425,30 +1246,98 @@ function ImageField({
   src?: string;
   emptyLabel: string;
   chooseLabel: string;
-  onChoose: (file: File | undefined) => void;
+  onChoose: (src: string) => void;
   onClear: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const [images, setImages] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    loadLibraryImages()
+      .then((next) => {
+        if (!cancelled) {
+          setImages(next);
+          setError(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError("Kunde inte läsa bilderna.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div className="admin-image">
+    <div className="admin-image" ref={rootRef}>
       {src ? <img src={src} alt="" /> : <p>{emptyLabel}</p>}
       <div>
-        <label className="admin-file">
+        <button
+          type="button"
+          className="admin-file"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+        >
           {chooseLabel}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(event) => {
-              onChoose(event.target.files?.[0]);
-              event.target.value = "";
-            }}
-          />
-        </label>
+        </button>
         {src ? (
           <button type="button" onClick={onClear}>
             Ta bort bild
           </button>
         ) : null}
       </div>
+      {open ? (
+        <div className="admin-image-picker">
+          <p>Bilder i biblioteket</p>
+          {error ? <p>{error}</p> : null}
+          {images === null && !error ? <p>Hämtar bilder…</p> : null}
+          {images?.length === 0 ? <p>Inga bilder att välja.</p> : null}
+          {images && images.length > 0 ? (
+            <ul>
+              {images.map((image) => {
+                const name = image.split("/").pop() ?? image;
+                return (
+                  <li key={image}>
+                    <button
+                      type="button"
+                      className={src === image ? "is-selected" : undefined}
+                      aria-pressed={src === image}
+                      aria-label={name}
+                      title={name}
+                      onClick={() => {
+                        onChoose(image);
+                        setOpen(false);
+                      }}
+                    >
+                      <img src={image} alt="" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

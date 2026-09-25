@@ -136,6 +136,10 @@
   letter-spacing: -0.5px;
 }
 
+.admin-page-head {
+  margin-bottom: 24px;
+}
+
 .admin h3 {
   margin-bottom: 16px;
   font-size: 18px;
@@ -150,6 +154,7 @@
 .admin-publish,
 .admin-danger-button,
 .admin-file,
+.admin-image > div > button,
 .admin-block-head button,
 .admin-draft-main button,
 .admin-page-list button,
@@ -174,6 +179,7 @@
 .admin-quiet,
 .admin-block-head button,
 .admin-draft-main button,
+.admin-image > div > button,
 .admin-file {
   display: inline-flex;
   align-items: center;
@@ -192,6 +198,10 @@
   grid-template-columns: 200px minmax(0, 1.2fr) minmax(260px, 0.9fr);
   gap: 24px;
   align-items: start;
+}
+
+.admin-pages-layout.is-create {
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1.2fr) minmax(260px, 0.9fr);
 }
 
 .admin-pages-layout > section {
@@ -216,7 +226,7 @@
 }
 
 .admin-builder form {
-  margin-top: 24px;
+  margin-top: 0;
 }
 
 .admin-card {
@@ -314,7 +324,77 @@
 
 .admin-pick {
   max-width: 420px;
-  margin-top: 24px;
+  margin-top: 0;
+}
+
+.admin-pages-layout .admin-pick {
+  max-width: none;
+}
+
+.admin-pages-layout .admin-on-page {
+  max-width: none;
+  margin-top: 20px;
+}
+
+.admin-pages-layout .admin-on-page span {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.admin-pages-layout .admin-locked-footer {
+  margin-top: 12px;
+}
+
+.admin-create-fields {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 24px;
+  padding: 16px 18px 18px;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.admin-create-fields label {
+  display: block;
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+.admin-create-fields input:not([type="checkbox"]),
+.admin-create-fields select {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(36, 36, 36, 0.2);
+  border-radius: 10px;
+  font: inherit;
+  color: inherit;
+  background: #fff;
+}
+
+.admin-create-fields .admin-url {
+  margin-top: 6px;
+}
+
+.admin-create-fields .admin-url input {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.admin-derived-url {
+  margin: 0;
+  color: rgba(36, 36, 36, 0.72);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.admin-derived-url span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink);
 }
 
 .admin-canvas textarea {
@@ -638,7 +718,7 @@
   cursor: default;
 }
 
-.admin-image img {
+.admin-image > img {
   display: block;
   width: 100%;
   max-height: 180px;
@@ -647,8 +727,60 @@
   margin-bottom: 10px;
 }
 
-.admin-file input {
-  display: none;
+.admin-image > .admin-image-picker {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f4f1ee;
+  box-sizing: border-box;
+}
+
+.admin-image-picker > p {
+  margin: 0 0 10px;
+}
+
+.admin-image-picker ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-canvas .admin-image-picker li,
+.admin-canvas .admin-image-picker li + li {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.admin-image-picker button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.admin-image-picker button:hover,
+.admin-image-picker button.is-selected {
+  border-color: var(--navy);
+}
+
+.admin-image-picker img {
+  display: block;
+  width: 100%;
+  height: 72px;
+  margin: 0;
+  object-fit: cover;
+  border-radius: 6px;
 }
 
 .admin-home-editor {
@@ -1108,6 +1240,8 @@
 .admin-miniature-frame {
   max-height: calc(100svh - 148px);
   overflow: auto;
+  overflow-anchor: none;
+  scrollbar-gutter: stable;
   background: #fff;
   scrollbar-width: thin;
 }
@@ -1146,6 +1280,10 @@
 @media (max-width: 1180px) {
   .admin-pages-layout {
     grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  .admin-pages-layout.is-create {
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
   }
 
   .admin-pages-layout > .admin-miniature {
