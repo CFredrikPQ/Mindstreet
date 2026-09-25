@@ -702,45 +702,60 @@ export default function AdminPage() {
               {pages.length === 0 ? (
                 <p className="admin-empty">Skapa en sida först. Sedan kan du lägga till block.</p>
               ) : (
-                <>
-                  <label className="admin-pick">
-                    Sida
-                    <select
-                      value={selectedSlug ?? ""}
-                      onChange={(event) => {
-                        setSelectedSlug(event.target.value || null);
-                        setNotice(null);
-                      }}
-                    >
-                      {listedPages.map((page) => (
-                        <option key={page.slug} value={page.slug}>
-                          {pageTitle(page)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                <div className="admin-pages-layout is-components">
+                  <section aria-label="Komponenter">
+                    <label className="admin-pick">
+                      Sida
+                      <select
+                        value={selectedSlug ?? ""}
+                        onChange={(event) => {
+                          setSelectedSlug(event.target.value || null);
+                          setNotice(null);
+                        }}
+                      >
+                        {listedPages.map((page) => (
+                          <option key={page.slug} value={page.slug}>
+                            {pageTitle(page)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
-                  <BlockCatalog onAdd={addBlock} />
+                    <BlockCatalog onAdd={addBlock} />
 
-                  {selected ? (
-                    <div className="admin-on-page">
-                      <h3>På {pageTitle(selected)}</h3>
-                      {selected.blocks.length === 0 ? (
-                        <p className="admin-empty">Inga komponenter på sidan ännu.</p>
-                      ) : (
-                        <ol>
-                          {selected.blocks.map((block) => (
-                            <li key={block.id}>
-                              <strong>{blockLabel(block.type)}</strong>
-                              <span>{block.heading}</span>
-                            </li>
-                          ))}
-                        </ol>
-                      )}
-                      <LockedFooterNote />
-                    </div>
-                  ) : null}
-                </>
+                    {selected ? (
+                      <div className="admin-on-page">
+                        <h3>På {pageTitle(selected)}</h3>
+                        {selected.blocks.length === 0 ? (
+                          <p className="admin-empty">Inga komponenter på sidan ännu.</p>
+                        ) : (
+                          <ol>
+                            {selected.blocks.map((block) => (
+                              <li key={block.id}>
+                                <strong>{blockLabel(block.type)}</strong>
+                                <span>{block.heading}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                        <LockedFooterNote />
+                      </div>
+                    ) : null}
+                  </section>
+
+                  <PageMiniature
+                    url={selected ? `${SITE_HOST}/${selected.slug}` : SITE_HOST}
+                    page={
+                      selected ?? {
+                        slug: "ny-mall",
+                        title: "Ny sidmall",
+                        published: true,
+                        links: [],
+                        blocks: [],
+                      }
+                    }
+                  />
+                </div>
               )}
             </div>
           ) : null}

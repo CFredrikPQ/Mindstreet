@@ -204,6 +204,10 @@
   grid-template-columns: minmax(240px, 320px) minmax(0, 1.2fr) minmax(260px, 0.9fr);
 }
 
+.admin-pages-layout.is-components {
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.9fr);
+}
+
 .admin-pages-layout > section {
   min-width: 0;
 }
@@ -1390,6 +1394,10 @@
 
   .admin-pages-layout.is-create {
     grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+  }
+
+  .admin-pages-layout.is-components {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .admin-pages-layout > .admin-miniature {
