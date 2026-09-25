@@ -13,6 +13,8 @@ import {
   blockLabel,
   cloneTemplateBlocks,
   createBlock,
+  createCard,
+  createOfferingRow,
   fieldsFor,
   library,
   quoteAfterIndex,
@@ -34,7 +36,7 @@ import {
   writePages,
   type PageArchiveEntry,
 } from "@/lib/cms/storage";
-import type { BlockTheme, BlockType, CmsBlock, CmsPage } from "@/lib/cms/types";
+import type { BlockTheme, BlockType, CmsBlock, CmsCard, CmsPage } from "@/lib/cms/types";
 import "./admin.css";
 
 const PREVIEW_WIDTH = 1280;
@@ -477,6 +479,20 @@ export default function AdminPage() {
                                   onChange={(patch) => updateBlock(block.id, patch)}
                                   onImage={(src, field) => updateBlock(block.id, { [field]: src })}
                                 />
+                                {block.type === "expertise" ? (
+                                  <ExpertiseCards
+                                    items={block.items ?? []}
+                                    pages={pages}
+                                    onChange={(items) => updateBlock(block.id, { items })}
+                                  />
+                                ) : null}
+                                {block.type === "offering" ? (
+                                  <OfferingRows
+                                    items={block.items ?? []}
+                                    pages={pages}
+                                    onChange={(items) => updateBlock(block.id, { items })}
+                                  />
+                                ) : null}
                               </li>
                             ))}
                         </ol>
@@ -1187,6 +1203,147 @@ function QuotePlacement({
         ))}
       </select>
     </label>
+  );
+}
+
+function ExpertiseCards({
+  items,
+  pages,
+  onChange,
+}: {
+  items: CmsCard[];
+  pages: CmsPage[];
+  onChange: (items: CmsCard[]) => void;
+}) {
+  function patch(id: string, next: Partial<CmsCard>) {
+    onChange(items.map((item) => (item.id === id ? { ...item, ...next } : item)));
+  }
+
+  return (
+    <fieldset className="admin-cards">
+      <legend>Kort</legend>
+      <ol>
+        {items.map((item, index) => (
+          <li key={item.id}>
+            <div className="admin-block-head">
+              <strong>Kort {index + 1}</strong>
+              <button
+                type="button"
+                onClick={() => onChange(items.filter((row) => row.id !== item.id))}
+              >
+                Ta bort
+              </button>
+            </div>
+            <label>
+              Rubrik
+              <input
+                value={item.heading}
+                onChange={(event) => patch(item.id, { heading: event.target.value })}
+              />
+            </label>
+            <label>
+              Text
+              <textarea
+                rows={4}
+                value={item.body}
+                onChange={(event) => patch(item.id, { body: event.target.value })}
+              />
+            </label>
+            <label>
+              Undersida
+              <select
+                value={item.href}
+                onChange={(event) => patch(item.id, { href: event.target.value })}
+              >
+                <option value="">Ingen sida</option>
+                {pages.map((page) => (
+                  <option key={page.slug} value={`/${page.slug}`}>
+                    {page.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </li>
+        ))}
+      </ol>
+      <button type="button" onClick={() => onChange([...items, createCard()])}>
+        Lägg till kort
+      </button>
+    </fieldset>
+  );
+}
+
+function OfferingRows({
+  items,
+  pages,
+  onChange,
+}: {
+  items: CmsCard[];
+  pages: CmsPage[];
+  onChange: (items: CmsCard[]) => void;
+}) {
+  function patch(id: string, next: Partial<CmsCard>) {
+    onChange(items.map((item) => (item.id === id ? { ...item, ...next } : item)));
+  }
+
+  return (
+    <fieldset className="admin-cards">
+      <legend>Rader</legend>
+      <ol>
+        {items.map((item, index) => (
+          <li key={item.id}>
+            <div className="admin-block-head">
+              <strong>Rad {index + 1}</strong>
+              <button
+                type="button"
+                onClick={() => onChange(items.filter((row) => row.id !== item.id))}
+              >
+                Ta bort
+              </button>
+            </div>
+            <label>
+              Rubrik
+              <input
+                value={item.heading}
+                onChange={(event) => patch(item.id, { heading: event.target.value })}
+              />
+            </label>
+            <label>
+              Text
+              <textarea
+                rows={4}
+                value={item.body}
+                onChange={(event) => patch(item.id, { body: event.target.value })}
+              />
+            </label>
+            <label>
+              Knapp
+              <input
+                value={item.buttonLabel ?? ""}
+                onChange={(event) => patch(item.id, { buttonLabel: event.target.value })}
+              />
+            </label>
+            <label>
+              Undersida
+              <select
+                value={item.href}
+                onChange={(event) => patch(item.id, { href: event.target.value })}
+              >
+                <option value="">Ingen sida</option>
+                {pages.map((page) => (
+                  <option key={page.slug} value={`/${page.slug}`}>
+                    {page.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </li>
+        ))}
+      </ol>
+      <button type="button" onClick={() => onChange([...items, createOfferingRow("Ny rad")])}>
+        Lägg till rad
+      </button>
+    </fieldset>
   );
 }
 

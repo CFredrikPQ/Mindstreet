@@ -1086,6 +1086,84 @@
   background: #002b3d;
 }
 
+.admin-thumb-offering {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(36, 36, 36, 0.12);
+}
+
+.admin-thumb-offering::before,
+.admin-thumb-offering::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: rgba(36, 36, 36, 0.45);
+}
+
+.admin-thumb-offering::before {
+  top: 28px;
+  box-shadow: 0 18px 0 rgba(36, 36, 36, 0.45);
+}
+
+.admin-thumb-offering::after {
+  top: 64px;
+}
+
+.admin-thumb-expertise {
+  background: rgba(225, 188, 171, 0.55);
+}
+
+.admin-thumb-expertise::before,
+.admin-thumb-expertise::after {
+  content: "";
+  position: absolute;
+  background: rgba(36, 36, 36, 0.35);
+}
+
+.admin-thumb-expertise::before {
+  left: 50%;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+}
+
+.admin-thumb-expertise::after {
+  top: 50%;
+  left: 8px;
+  right: 8px;
+  height: 1px;
+}
+
+.admin-cards {
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-cards legend {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-cards ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-cards li {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(36, 36, 36, 0.12);
+}
+
+.admin-cards li label {
+  display: block;
+  margin-top: 8px;
+}
+
 .admin-thumb-highlight::before {
   content: "";
   position: absolute;

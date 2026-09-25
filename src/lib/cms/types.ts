@@ -8,17 +8,28 @@ export type BlockType =
   | "sectionHeader"
   | "highlight"
   | "lead"
-  | "article";
+  | "article"
+  | "expertise"
+  | "offering";
 
 export type ImageSide = "left" | "right";
 export type BlockAlign = "left" | "center";
 export type BlockTheme = "sand" | "mist" | "cream" | "white";
+
+export type CmsCard = {
+  id: string;
+  heading: string;
+  body: string;
+  href: string;
+  buttonLabel?: string;
+};
 
 export type CmsBlock = {
   id: string;
   type: BlockType;
   heading: string;
   body: string;
+  items?: CmsCard[];
   image?: string;
   image2?: string;
   eyebrow?: string;

@@ -1,3 +1,4 @@
+import { OfferingBlock } from "@/components/cms/offering-block";
 import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
 import { renderInline } from "@/lib/cms/inline";
@@ -213,7 +214,41 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
     );
   }
 
+  if (block.type === "offering") {
+    return <OfferingBlock heading={block.heading} items={block.items ?? []} />;
+  }
+
+  if (block.type === "expertise") {
+    const items = block.items ?? [];
+    return (
+      <section className="cms-expertise">
+        <div className="section-inner">
+          {block.heading ? <h2>{block.heading}</h2> : null}
+          <div className="cms-expertise-grid">
+            {items.map((item) => (
+              <article key={item.id}>
+                {item.heading ? <h3>{item.heading}</h3> : null}
+                {item.body ? <p>{item.body}</p> : null}
+                <CardArrow heading={item.heading} href={item.href} />
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return null;
+}
+
+function CardArrow({ heading, href }: { heading: string; href: string }) {
+  const icon = <img className="cms-expertise-arrow" src="/icons/arrow.svg" width={23} height={23} alt="" />;
+  if (!href.trim()) return icon;
+  return (
+    <a className="cms-expertise-link" href={href} aria-label={heading || href}>
+      {icon}
+    </a>
+  );
 }
 
 function ThemedSurface({

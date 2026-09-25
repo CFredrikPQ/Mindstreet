@@ -1,4 +1,4 @@
-import type { BlockTheme, BlockType, CmsBlock } from "@/lib/cms/types";
+import type { BlockTheme, BlockType, CmsBlock, CmsCard } from "@/lib/cms/types";
 
 export const SITE_HOST = "www.mindstreet.se";
 
@@ -93,6 +93,16 @@ export const library: {
     label: "Artikel",
     description: "Längre text, bild och citat",
   },
+  {
+    type: "expertise",
+    label: "Expertområden",
+    description: "Kort med rubrik, text och länk",
+  },
+  {
+    type: "offering",
+    label: "Erbjudande",
+    description: "Utfällbara rader med länk",
+  },
 ];
 
 const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
@@ -159,7 +169,55 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     imageSide: "right",
     theme: "white",
   },
+  expertise: {
+    heading: "Våra expertområden",
+    body: "",
+  },
+  offering: {
+    heading: "Vårt erbjudande",
+    body: "",
+  },
 };
+
+const expertiseCardBody =
+  "Betalningsmarknaden förändras i rasande fart. Samtidigt som nya betaltjänster växer fram, ställs allt högre krav på att branschen ska anpassa sig till nya regler och ny infrastruktur.";
+
+const expertiseCardHeadings = ["Betalningar", "Kreditrisk", "AML", "Systembyten/Tech"];
+
+export function createCard(heading = "Nytt område"): CmsCard {
+  return {
+    id: crypto.randomUUID(),
+    heading,
+    body: expertiseCardBody,
+    href: "",
+  };
+}
+
+export function createExpertiseItems(): CmsCard[] {
+  return expertiseCardHeadings.map((heading) => createCard(heading));
+}
+
+const offeringAdvice =
+  "Ibland behöver man ett bollplank, ett annat perspektiv och en djupare kompetens i ett ämne. Mindstreet hjälper dig med seniora rådgivare till ledningsgrupper, specifika projekt eller inför större beslut.";
+
+export function createOfferingRow(heading: string, body = "", buttonLabel = ""): CmsCard {
+  return {
+    id: crypto.randomUUID(),
+    heading,
+    body,
+    href: "",
+    buttonLabel,
+  };
+}
+
+export function createOfferingItems(): CmsCard[] {
+  return [
+    createOfferingRow("Konsulttjänster"),
+    createOfferingRow("Interimstjänster"),
+    createOfferingRow("Rådgivning", offeringAdvice, "Les mer"),
+    createOfferingRow("Rekrytering"),
+  ];
+}
 
 export function articleParagraphs(body: string): string[] {
   return body
@@ -180,6 +238,8 @@ export function createBlock(type: BlockType): CmsBlock {
     id: crypto.randomUUID(),
     type,
     ...defaults[type],
+    ...(type === "expertise" ? { items: createExpertiseItems() } : {}),
+    ...(type === "offering" ? { items: createOfferingItems() } : {}),
   };
 }
 
@@ -286,6 +346,10 @@ export function fieldsFor(type: BlockType): BlockFields {
 
   if (type === "highlight") {
     return { ...none, heading: "Rubrik", body: "Liten rad", image: true, button: true };
+  }
+
+  if (type === "expertise" || type === "offering") {
+    return { ...none, heading: "Rubrik", body: null };
   }
 
   if (type === "lead" || type === "text") {
