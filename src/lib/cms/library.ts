@@ -270,6 +270,17 @@ export function cloneTemplateBlocks(blocks: CmsBlock[]): CmsBlock[] {
       next.quote = "";
       if (block.quoteAfter !== undefined) next.quoteAfter = block.quoteAfter;
     }
+    if (block.type === "expertise" || block.type === "offering") {
+      next.items = (block.items ?? []).map((item) => ({
+        id: crypto.randomUUID(),
+        heading: "",
+        body: "",
+        href: "",
+        ...(block.type === "offering" || item.buttonLabel !== undefined
+          ? { buttonLabel: "" }
+          : {}),
+      }));
+    }
     return next;
   });
 }

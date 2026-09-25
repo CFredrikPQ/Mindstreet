@@ -744,6 +744,20 @@ export default function AdminPage() {
                                     onChange={(patch) => updateDraftBlock(block.id, patch)}
                                     onImage={(src, field) => updateDraftBlock(block.id, { [field]: src })}
                                   />
+                                  {block.type === "expertise" ? (
+                                    <ExpertiseCards
+                                      items={block.items ?? []}
+                                      pages={pages}
+                                      onChange={(items) => updateDraftBlock(block.id, { items })}
+                                    />
+                                  ) : null}
+                                  {block.type === "offering" ? (
+                                    <OfferingRows
+                                      items={block.items ?? []}
+                                      pages={pages}
+                                      onChange={(items) => updateDraftBlock(block.id, { items })}
+                                    />
+                                  ) : null}
                                 </li>
                               ))}
                             </ol>
