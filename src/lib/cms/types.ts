@@ -10,7 +10,8 @@ export type BlockType =
   | "lead"
   | "article"
   | "expertise"
-  | "offering";
+  | "offering"
+  | "statement";
 
 export type ImageSide = "left" | "right";
 export type BlockAlign = "left" | "center";

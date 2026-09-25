@@ -214,6 +214,19 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
     );
   }
 
+  if (block.type === "statement") {
+    return (
+      <section className="cms-statement">
+        {block.body ? <p>{block.body}</p> : null}
+        {block.buttonLabel ? (
+          <a className="btn cms-statement-link" href={block.buttonHref || "#"}>
+            {block.buttonLabel}
+          </a>
+        ) : null}
+      </section>
+    );
+  }
+
   if (block.type === "offering") {
     return <OfferingBlock heading={block.heading} items={block.items ?? []} />;
   }

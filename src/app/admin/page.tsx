@@ -845,7 +845,13 @@ function BlockFieldsEditor({
           <label>
             {fields.body}
             <textarea
-              rows={block.type === "banner" || block.type === "highlight" ? 2 : 5}
+              rows={
+                block.type === "banner" || block.type === "highlight"
+                  ? 2
+                  : block.type === "statement"
+                    ? 6
+                    : 5
+              }
               value={block.body}
               onChange={(event) => onChange({ body: event.target.value })}
             />

@@ -1086,6 +1086,34 @@
   background: #002b3d;
 }
 
+.admin-thumb-statement {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(33, 19, 77, 0.12);
+}
+
+.admin-thumb-statement::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 22px;
+  height: 18px;
+  border-radius: 2px;
+  background: rgba(33, 19, 77, 0.28);
+}
+
+.admin-thumb-statement::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  width: 42px;
+  height: 14px;
+  border: 1px solid #21134d;
+  border-radius: 999px;
+  transform: translateX(-50%);
+}
+
 .admin-thumb-offering {
   background: #fff;
   box-shadow: inset 0 0 0 1px rgba(36, 36, 36, 0.12);

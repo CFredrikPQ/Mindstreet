@@ -229,6 +229,38 @@
   text-decoration: none;
 }
 
+.cms-statement {
+  padding: 96px var(--gutter);
+  text-align: center;
+  color: #21134d;
+}
+
+.cms-statement p {
+  max-width: 656px;
+  margin: 0 auto 40px;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 40px;
+}
+
+.cms-statement .cms-statement-link {
+  min-width: 0;
+  height: 44px;
+  padding: 0 26px;
+  border: 1px solid #21134d;
+  border-radius: 37px;
+  color: #21134d;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.cms-statement .cms-statement-link:hover {
+  background: #21134d;
+  color: #fff;
+}
+
 .cms-article {
   max-width: 720px;
   margin: 0 auto;

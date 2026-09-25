@@ -103,6 +103,11 @@ export const library: {
     label: "Erbjudande",
     description: "Utfällbara rader med länk",
   },
+  {
+    type: "statement",
+    label: "Text och knapp",
+    description: "Centrerad text med outline-knapp",
+  },
 ];
 
 const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
@@ -176,6 +181,12 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
   offering: {
     heading: "Vårt erbjudande",
     body: "",
+  },
+  statement: {
+    heading: "",
+    body: "Tia nonsenis ex eum volenim dit aut mil estisit verupiet aut quis dus quunt eum fugiati duciiss imillutatur. Itatur aut eaquam quidendio ommod eseque sam faccatum et oditiae volorum",
+    buttonLabel: "Contact us",
+    buttonHref: "/#kontakt",
   },
 };
 
@@ -351,6 +362,10 @@ export function fieldsFor(type: BlockType): BlockFields {
 
   if (type === "expertise" || type === "offering") {
     return { ...none, heading: "Rubrik", body: null };
+  }
+
+  if (type === "statement") {
+    return { ...none, heading: null, body: "Text", button: true };
   }
 
   if (type === "lead" || type === "text") {
