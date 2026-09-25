@@ -61,6 +61,8 @@ function loadLibraryImages() {
 
 type Panel = "pages" | "create" | "components";
 
+const BLANK_TEMPLATE = "__blank__";
+
 const panels: { id: Panel; kicker: string; title: string }[] = [
   { id: "pages", kicker: "Befintliga", title: "Publicerade sidor" },
   { id: "create", kicker: "Ny sida", title: "Skapa ny sida av mall" },
@@ -73,6 +75,10 @@ export default function AdminPage() {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(HOME_SELECTION);
   const [panel, setPanel] = useState<Panel>("pages");
   const [titleInput, setTitleInput] = useState("");
+  const [componentTarget, setComponentTarget] = useState(BLANK_TEMPLATE);
+  const [blankBlocks, setBlankBlocks] = useState<CmsBlock[]>([]);
+  const [blankTitle, setBlankTitle] = useState("");
+  const [blankParent, setBlankParent] = useState("");
   const [parentSlug, setParentSlug] = useState("");
   const [draftBlocks, setDraftBlocks] = useState<CmsBlock[]>([]);
   const [templateSlug, setTemplateSlug] = useState<string | null>(null);
@@ -101,6 +107,12 @@ export default function AdminPage() {
   const pendingRemoved = deleteSlug ? pagesRemovedWith(deleteSlug, pages) : [];
   const parents = rootPages(pages);
   const previewSlug = composeSlug(parentSlug || undefined, slugifyTitle(titleInput));
+  const blankMode = componentTarget === BLANK_TEMPLATE;
+  const componentPage = blankMode
+    ? null
+    : (pages.find((page) => page.slug === componentTarget) ?? null);
+  const componentBlocks = blankMode ? blankBlocks : (componentPage?.blocks ?? []);
+  const blankSlug = composeSlug(blankParent || undefined, slugifyTitle(blankTitle));
 
   function persist(updater: (current: CmsPage[]) => CmsPage[]) {
     const next = updater(pagesRef.current);
@@ -230,16 +242,57 @@ export default function AdminPage() {
   }
 
   function addBlock(type: BlockType) {
-    if (!selected) {
+    const block = createBlock(type);
+    if (componentTarget === BLANK_TEMPLATE) {
+      setBlankBlocks((current) => [...current, block]);
+      setNotice(null);
+      return;
+    }
+    if (!pagesRef.current.some((page) => page.slug === componentTarget)) {
       setNotice("Välj en sida först.");
       return;
     }
-    const block = createBlock(type);
     persist((current) =>
       current.map((page) =>
-        page.slug === selected.slug ? { ...page, blocks: [...page.blocks, block] } : page,
+        page.slug === componentTarget ? { ...page, blocks: [...page.blocks, block] } : page,
       ),
     );
+  }
+
+  function saveBlankTemplate() {
+    const title = blankTitle.trim();
+    if (!title) {
+      setNotice("Skriv ett sidnamn.");
+      return;
+    }
+    const parent = blankParent || undefined;
+    const slug = composeSlug(parent, slugifyTitle(title));
+    const current = pagesRef.current;
+    const slugError = validateSlug(slug, current);
+    if (slugError) {
+      setNotice(slugError);
+      return;
+    }
+    if (parent && !current.some((page) => page.slug === parent)) {
+      setNotice("Välj en befintlig förälder.");
+      return;
+    }
+    const page: CmsPage = {
+      slug,
+      title,
+      parentSlug: parent,
+      published: false,
+      links: [],
+      blocks: blankBlocks,
+    };
+    const saved = persist((pages) => [...pages, page]);
+    if (!saved) return;
+    setSelectedSlug(page.slug);
+    setComponentTarget(page.slug);
+    setBlankBlocks([]);
+    setBlankTitle("");
+    setBlankParent("");
+    setNotice("Sidmallen är sparad som utkast.");
   }
 
   function updateBlock(id: string, patch: Partial<CmsBlock>) {
@@ -255,6 +308,31 @@ export default function AdminPage() {
             }
           : page,
       ),
+    );
+  }
+
+  function moveComponentBlock(index: number, direction: -1 | 1) {
+    const nextIndex = index + direction;
+    if (blankMode) {
+      setBlankBlocks((current) => {
+        if (nextIndex < 0 || nextIndex >= current.length) return current;
+        const blocks = [...current];
+        const [item] = blocks.splice(index, 1);
+        blocks.splice(nextIndex, 0, item);
+        return blocks;
+      });
+      return;
+    }
+    if (!componentPage || nextIndex < 0 || nextIndex >= componentPage.blocks.length) return;
+    const slug = componentPage.slug;
+    persist((current) =>
+      current.map((page) => {
+        if (page.slug !== slug) return page;
+        const blocks = [...page.blocks];
+        const [item] = blocks.splice(index, 1);
+        blocks.splice(nextIndex, 0, item);
+        return { ...page, blocks };
+      }),
     );
   }
 
@@ -699,64 +777,136 @@ export default function AdminPage() {
           {panel === "components" ? (
             <div className="admin-panel">
               <PageHeading kicker="Bibliotek" title="Skapa ny sidmall utifrån komponenter" />
-              {pages.length === 0 ? (
-                <p className="admin-empty">Skapa en sida först. Sedan kan du lägga till block.</p>
-              ) : (
-                <div className="admin-pages-layout is-components">
-                  <section aria-label="Komponenter">
-                    <label className="admin-pick">
-                      Sida
-                      <select
-                        value={selectedSlug ?? ""}
-                        onChange={(event) => {
-                          setSelectedSlug(event.target.value || null);
-                          setNotice(null);
-                        }}
-                      >
-                        {listedPages.map((page) => (
-                          <option key={page.slug} value={page.slug}>
-                            {pageTitle(page)}
-                          </option>
+              <div className="admin-pages-layout is-components">
+                <section aria-label="Komponenter">
+                  <label className="admin-pick" htmlFor="component-target">
+                    Utgå från
+                    <select
+                      id="component-target"
+                      value={blankMode ? BLANK_TEMPLATE : (componentPage?.slug ?? BLANK_TEMPLATE)}
+                      onChange={(event) => {
+                        setComponentTarget(event.target.value);
+                        setNotice(null);
+                      }}
+                    >
+                      <option value={BLANK_TEMPLATE}>Blank sida</option>
+                      {listedPages.map((page) => (
+                        <option key={page.slug} value={page.slug}>
+                          {page.parentSlug ? `– ${pageTitle(page)}` : pageTitle(page)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {blankMode ? (
+                    <div className="admin-create-fields">
+                      <label htmlFor="blank-title">
+                        Sidnamn
+                        <input
+                          id="blank-title"
+                          value={blankTitle}
+                          onChange={(event) => setBlankTitle(event.target.value)}
+                          placeholder="Ny sidmall"
+                        />
+                      </label>
+                      <p className="admin-derived-url">
+                        <span>URL</span>
+                        {blankSlug ? `${SITE_HOST}/${blankSlug}` : `${SITE_HOST}/`}
+                      </p>
+                      <label htmlFor="blank-parent">
+                        Förälder
+                        <select
+                          id="blank-parent"
+                          value={blankParent}
+                          onChange={(event) => setBlankParent(event.target.value)}
+                        >
+                          <option value="">Ingen</option>
+                          {parents.map((page) => (
+                            <option key={page.slug} value={page.slug}>
+                              {pageTitle(page)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button type="button" className="admin-primary" onClick={saveBlankTemplate}>
+                        Spara sidmall
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <BlockCatalog onAdd={addBlock} />
+
+                  <div className="admin-on-page">
+                    <h3>
+                      På{" "}
+                      {blankMode || !componentPage
+                        ? blankTitle.trim() || "ny sidmall"
+                        : pageTitle(componentPage)}
+                    </h3>
+                    {componentBlocks.length === 0 ? (
+                      <p className="admin-empty">Inga komponenter på sidan ännu.</p>
+                    ) : (
+                      <ol>
+                        {componentBlocks.map((block, index) => (
+                          <li key={block.id}>
+                            <div className="admin-block-head">
+                              <strong>{blockLabel(block.type)}</strong>
+                              <div>
+                                <button
+                                  type="button"
+                                  onClick={() => moveComponentBlock(index, -1)}
+                                  disabled={index === 0}
+                                >
+                                  Upp
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moveComponentBlock(index, 1)}
+                                  disabled={index === componentBlocks.length - 1}
+                                >
+                                  Ner
+                                </button>
+                              </div>
+                            </div>
+                            <span>{block.heading}</span>
+                          </li>
                         ))}
-                      </select>
-                    </label>
+                      </ol>
+                    )}
+                    <LockedFooterNote />
+                  </div>
+                </section>
 
-                    <BlockCatalog onAdd={addBlock} />
-
-                    {selected ? (
-                      <div className="admin-on-page">
-                        <h3>På {pageTitle(selected)}</h3>
-                        {selected.blocks.length === 0 ? (
-                          <p className="admin-empty">Inga komponenter på sidan ännu.</p>
-                        ) : (
-                          <ol>
-                            {selected.blocks.map((block) => (
-                              <li key={block.id}>
-                                <strong>{blockLabel(block.type)}</strong>
-                                <span>{block.heading}</span>
-                              </li>
-                            ))}
-                          </ol>
-                        )}
-                        <LockedFooterNote />
-                      </div>
-                    ) : null}
-                  </section>
-
-                  <PageMiniature
-                    url={selected ? `${SITE_HOST}/${selected.slug}` : SITE_HOST}
-                    page={
-                      selected ?? {
-                        slug: "ny-mall",
-                        title: "Ny sidmall",
-                        published: true,
-                        links: [],
-                        blocks: [],
-                      }
-                    }
-                  />
-                </div>
-              )}
+                <PageMiniature
+                  url={
+                    blankMode
+                      ? blankSlug
+                        ? `${SITE_HOST}/${blankSlug}`
+                        : SITE_HOST
+                      : componentPage
+                        ? `${SITE_HOST}/${componentPage.slug}`
+                        : SITE_HOST
+                  }
+                  page={
+                    blankMode
+                      ? {
+                          slug: blankSlug || "ny-mall",
+                          title: blankTitle.trim() || "Ny sidmall",
+                          parentSlug: blankParent || undefined,
+                          published: false,
+                          links: [],
+                          blocks: blankBlocks,
+                        }
+                      : (componentPage ?? {
+                          slug: "ny-mall",
+                          title: "Ny sidmall",
+                          published: false,
+                          links: [],
+                          blocks: [],
+                        })
+                  }
+                />
+              </div>
             </div>
           ) : null}
         </main>

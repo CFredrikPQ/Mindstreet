@@ -691,6 +691,10 @@
   border-radius: 12px;
 }
 
+.admin-on-page .admin-block-head {
+  margin-bottom: 0;
+}
+
 .admin-canvas label + label,
 .admin-field-row,
 .admin-image {
