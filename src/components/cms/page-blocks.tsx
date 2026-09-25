@@ -1,6 +1,7 @@
 import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
-import { resolveTheme } from "@/lib/cms/library";
+import { renderInline } from "@/lib/cms/inline";
+import { articleParagraphs, quoteAfterIndex, resolveTheme } from "@/lib/cms/library";
 import type { CmsBlock, CmsPage } from "@/lib/cms/types";
 import "./page-blocks.css";
 
@@ -175,6 +176,29 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
           </div>
         </div>
       </section>
+    );
+  }
+
+  if (block.type === "article") {
+    const paragraphs = articleParagraphs(block.body);
+    const quote = block.quote?.trim() ?? "";
+    const after = quote ? quoteAfterIndex(block.quoteAfter, paragraphs.length) : -1;
+    return (
+      <ThemedSurface block={block}>
+        <article className="cms-article">
+          {block.heading ? <h2>{block.heading}</h2> : null}
+          <ModulePhoto src={block.image} />
+          <div className="cms-article-copy">
+            {after === -1 && quote ? <blockquote>{renderInline(quote)}</blockquote> : null}
+            {paragraphs.map((paragraph, index) => (
+              <div key={index}>
+                <p>{renderInline(paragraph)}</p>
+                {after === index && quote ? <blockquote>{renderInline(quote)}</blockquote> : null}
+              </div>
+            ))}
+          </div>
+        </article>
+      </ThemedSurface>
     );
   }
 

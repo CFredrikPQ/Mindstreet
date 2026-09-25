@@ -24,6 +24,7 @@ export type BlockFields = {
   imageSide: boolean;
   align: boolean;
   theme: boolean;
+  quote: boolean;
 };
 
 export const themes: {
@@ -87,6 +88,11 @@ export const library: {
     label: "Highlight",
     description: "Helbild med knapp",
   },
+  {
+    type: "article",
+    label: "Artikel",
+    description: "Längre text, bild och citat",
+  },
 ];
 
 const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
@@ -146,7 +152,28 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     body: leadBody,
     theme: "white",
   },
+  article: {
+    heading: "Lorem ipsum dolor sit amet",
+    body: `${loremBody}\n\n${loremBody}`,
+    image: "/images/about.jpg",
+    imageSide: "right",
+    theme: "white",
+  },
 };
+
+export function articleParagraphs(body: string): string[] {
+  return body
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+export function quoteAfterIndex(quoteAfter: number | undefined, count: number): number {
+  if (count === 0) return -1;
+  const raw = quoteAfter ?? 0;
+  if (raw < 0) return -1;
+  return Math.min(raw, count - 1);
+}
 
 export function createBlock(type: BlockType): CmsBlock {
   return {
@@ -167,7 +194,8 @@ export function blockHasImage(type: BlockType): boolean {
     type === "banner" ||
     type === "imageText" ||
     type === "imagePair" ||
-    type === "highlight"
+    type === "highlight" ||
+    type === "article"
   );
 }
 
@@ -177,7 +205,8 @@ export function blockHasTheme(type: BlockType): boolean {
     type === "imagePair" ||
     type === "text" ||
     type === "lead" ||
-    type === "sectionHeader"
+    type === "sectionHeader" ||
+    type === "article"
   );
 }
 
@@ -197,6 +226,7 @@ const none: Omit<BlockFields, "heading" | "body"> = {
   imageSide: false,
   align: false,
   theme: false,
+  quote: false,
 };
 
 export function fieldsFor(type: BlockType): BlockFields {
@@ -241,6 +271,18 @@ export function fieldsFor(type: BlockType): BlockFields {
 
   if (type === "lead" || type === "text") {
     return { ...none, heading: "Rubrik", body: "Text", theme: true };
+  }
+
+  if (type === "article") {
+    return {
+      ...none,
+      heading: "Rubrik",
+      body: "Text",
+      quote: true,
+      image: true,
+      imageSide: true,
+      theme: true,
+    };
   }
 
   return {

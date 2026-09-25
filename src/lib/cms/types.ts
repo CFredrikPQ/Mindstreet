@@ -7,7 +7,8 @@ export type BlockType =
   | "imagePair"
   | "sectionHeader"
   | "highlight"
-  | "lead";
+  | "lead"
+  | "article";
 
 export type ImageSide = "left" | "right";
 export type BlockAlign = "left" | "center";
@@ -23,6 +24,8 @@ export type CmsBlock = {
   eyebrow?: string;
   buttonLabel?: string;
   buttonHref?: string;
+  quote?: string;
+  quoteAfter?: number;
   imageSide?: ImageSide;
   align?: BlockAlign;
   theme?: BlockTheme;

@@ -2,16 +2,19 @@
 
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { HomeEditor } from "@/components/cms/home-editor";
+import { applyInline } from "@/lib/cms/inline";
 import { LockedFooterNote } from "@/components/cms/locked-footer";
 import { PageBlocks } from "@/components/cms/page-blocks";
 import { HomeView } from "@/components/home-view";
 import { HOME_SELECTION, defaultHomeContent, loadHome, writeHome, type HomeContent } from "@/lib/cms/home";
 import {
   SITE_HOST,
+  articleParagraphs,
   blockLabel,
   createBlock,
   fieldsFor,
   library,
+  quoteAfterIndex,
   resolveTheme,
   themes,
 } from "@/lib/cms/library";
@@ -552,18 +555,57 @@ export default function AdminPage() {
                                   </label>
                                 ) : null}
                                 {fields.body ? (
-                                  <label>
-                                    {fields.body}
-                                    <textarea
-                                      rows={
-                                        block.type === "banner" || block.type === "highlight" ? 2 : 5
-                                      }
+                                  block.type === "article" ? (
+                                    <FormattedText
+                                      label={fields.body}
+                                      rows={8}
                                       value={block.body}
-                                      onChange={(event) =>
-                                        updateBlock(block.id, { body: event.target.value })
-                                      }
+                                      onChange={(body) => updateBlock(block.id, { body })}
                                     />
-                                  </label>
+                                  ) : (
+                                    <label>
+                                      {fields.body}
+                                      <textarea
+                                        rows={block.type === "banner" || block.type === "highlight" ? 2 : 5}
+                                        value={block.body}
+                                        onChange={(event) =>
+                                          updateBlock(block.id, { body: event.target.value })
+                                        }
+                                      />
+                                    </label>
+                                  )
+                                ) : null}
+                                {fields.quote ? (
+                                  <>
+                                    <label className="admin-check">
+                                      <input
+                                        type="checkbox"
+                                        checked={block.quote !== undefined}
+                                        onChange={(event) =>
+                                          updateBlock(block.id, {
+                                            quote: event.target.checked ? block.quote ?? "" : undefined,
+                                            quoteAfter: event.target.checked ? block.quoteAfter ?? 0 : undefined,
+                                          })
+                                        }
+                                      />
+                                      Citat i texten
+                                    </label>
+                                    {block.quote !== undefined ? (
+                                      <>
+                                        <FormattedText
+                                          label="Citat"
+                                          rows={3}
+                                          value={block.quote}
+                                          onChange={(quote) => updateBlock(block.id, { quote })}
+                                        />
+                                        <QuotePlacement
+                                          body={block.body}
+                                          value={block.quoteAfter}
+                                          onChange={(quoteAfter) => updateBlock(block.id, { quoteAfter })}
+                                        />
+                                      </>
+                                    ) : null}
+                                  </>
                                 ) : null}
                                 {fields.button ? (
                                   <>
@@ -1235,6 +1277,95 @@ function PageMiniature({
         </div>
       </div>
     </aside>
+  );
+}
+
+function FormattedText({
+  label,
+  rows,
+  value,
+  onChange,
+}: {
+  label: string;
+  rows: number;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
+
+  function format(kind: "bold" | "link") {
+    const field = fieldRef.current;
+    if (!field) return;
+    const url = kind === "link" ? window.prompt("Klistra in länken", "https://") ?? "" : "";
+    if (kind === "link" && !url.trim()) return;
+    const next = applyInline(value, field.selectionStart, field.selectionEnd, kind, url);
+    if (!next) {
+      window.alert("Länken behöver börja med https://, http://, /, #, mailto: eller tel:.");
+      return;
+    }
+    onChange(next.value);
+    requestAnimationFrame(() => {
+      field.focus();
+      field.setSelectionRange(next.start, next.end);
+    });
+  }
+
+  return (
+    <div className="admin-format">
+      <span>{label}</span>
+      <div className="admin-format-tools">
+        <button type="button" onClick={() => format("bold")}>
+          Fetstil
+        </button>
+        <button type="button" onClick={() => format("link")}>
+          Länk
+        </button>
+      </div>
+      <textarea
+        ref={fieldRef}
+        rows={rows}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  );
+}
+
+function QuotePlacement({
+  body,
+  value,
+  onChange,
+}: {
+  body: string;
+  value: number | undefined;
+  onChange: (quoteAfter: number) => void;
+}) {
+  const count = articleParagraphs(body).length;
+  if (count === 0) return null;
+
+  const selected = quoteAfterIndex(value, count);
+  const options = [
+    { value: -1, label: "Före texten" },
+    ...Array.from({ length: count }, (_, index) => ({
+      value: index,
+      label: index === count - 1 ? "Efter texten" : `Efter stycke ${index + 1}`,
+    })),
+  ];
+
+  return (
+    <label>
+      Placering
+      <select
+        value={selected}
+        onChange={(event) => onChange(Number(event.target.value))}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
