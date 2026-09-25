@@ -14,7 +14,7 @@ export type BlockType =
   | "statement";
 
 export type ImageSide = "left" | "right";
-export type BlockAlign = "left" | "center";
+export type BlockAlign = "left" | "center" | "right";
 export type BlockTheme = "sand" | "mist" | "cream" | "white";
 
 export type CmsCard = {

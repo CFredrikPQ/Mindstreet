@@ -215,14 +215,17 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
   }
 
   if (block.type === "statement") {
+    const align = block.align === "left" || block.align === "right" ? block.align : "center";
     return (
-      <section className="cms-statement">
-        {block.body ? <p>{block.body}</p> : null}
-        {block.buttonLabel ? (
-          <a className="btn cms-statement-link" href={block.buttonHref || "#"}>
-            {block.buttonLabel}
-          </a>
-        ) : null}
+      <section className={`cms-statement is-${align}`}>
+        <div className="cms-statement-inner">
+          {block.body ? <p>{block.body}</p> : null}
+          {block.buttonLabel ? (
+            <a className="btn cms-statement-link" href={block.buttonHref || "#"}>
+              {block.buttonLabel}
+            </a>
+          ) : null}
+        </div>
       </section>
     );
   }

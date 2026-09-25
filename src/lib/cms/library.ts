@@ -106,7 +106,7 @@ export const library: {
   {
     type: "statement",
     label: "Text och knapp",
-    description: "Centrerad text med outline-knapp",
+    description: "Text med valfri knapp",
   },
 ];
 
@@ -187,6 +187,7 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     body: "Tia nonsenis ex eum volenim dit aut mil estisit verupiet aut quis dus quunt eum fugiati duciiss imillutatur. Itatur aut eaquam quidendio ommod eseque sam faccatum et oditiae volorum",
     buttonLabel: "Contact us",
     buttonHref: "/#kontakt",
+    align: "center",
   },
 };
 

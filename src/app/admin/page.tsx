@@ -1056,7 +1056,59 @@ function BlockFieldsEditor({
         </>
       ) : null}
       {fields.quote && quoteMode === "locked" ? quoteFields : null}
-      {fields.button ? (
+      {block.type === "statement" ? (
+        <label>
+          Justering
+          <select
+            value={block.align ?? "center"}
+            onChange={(event) => onChange({ align: event.target.value as CmsBlock["align"] })}
+          >
+            <option value="left">Vänster</option>
+            <option value="center">Centrerad</option>
+            <option value="right">Höger</option>
+          </select>
+        </label>
+      ) : null}
+      {fields.button && block.type === "statement" ? (
+        <>
+          <label className="admin-check">
+            <input
+              type="checkbox"
+              checked={block.buttonLabel !== undefined}
+              onChange={(event) =>
+                onChange(
+                  event.target.checked
+                    ? {
+                        buttonLabel: block.buttonLabel || "Contact us",
+                        buttonHref: block.buttonHref || "/#kontakt",
+                      }
+                    : { buttonLabel: undefined, buttonHref: undefined },
+                )
+              }
+            />
+            Knapp
+          </label>
+          {block.buttonLabel !== undefined ? (
+            <>
+              <label>
+                Knapp
+                <input
+                  value={block.buttonLabel}
+                  onChange={(event) => onChange({ buttonLabel: event.target.value })}
+                />
+              </label>
+              <label>
+                Länk
+                <input
+                  value={block.buttonHref ?? ""}
+                  onChange={(event) => onChange({ buttonHref: event.target.value })}
+                />
+              </label>
+            </>
+          ) : null}
+        </>
+      ) : null}
+      {fields.button && block.type !== "statement" ? (
         <>
           <label>
             Knapp
