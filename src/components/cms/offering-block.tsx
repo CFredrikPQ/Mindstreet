@@ -15,6 +15,7 @@ export function OfferingBlock({ heading, items }: { heading: string; items: CmsC
             const isOpen = openId === item.id;
             const panelId = `offering-${item.id}`;
             const href = item.href.trim();
+            const buttonLabel = item.buttonLabel?.trim() ?? "";
             return (
               <article key={item.id} className={isOpen ? "is-open" : undefined}>
                 <h3>
@@ -31,9 +32,9 @@ export function OfferingBlock({ heading, items }: { heading: string; items: CmsC
                 {isOpen ? (
                   <div className="offering-body" id={panelId}>
                     {item.body ? <p>{item.body}</p> : null}
-                    {href ? (
-                      <a className="btn btn-dark" href={href}>
-                        {item.buttonLabel || item.heading}
+                    {buttonLabel || href ? (
+                      <a className="btn offering-link" href={href || "#"}>
+                        {buttonLabel || "Read more"}
                       </a>
                     ) : null}
                   </div>

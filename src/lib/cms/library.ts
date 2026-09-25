@@ -200,23 +200,24 @@ export function createExpertiseItems(): CmsCard[] {
 const offeringAdvice =
   "Ibland behöver man ett bollplank, ett annat perspektiv och en djupare kompetens i ett ämne. Mindstreet hjälper dig med seniora rådgivare till ledningsgrupper, specifika projekt eller inför större beslut.";
 
-export function createOfferingRow(heading: string, body = "", buttonLabel = ""): CmsCard {
+export function createOfferingRow(
+  heading: string,
+  body = offeringAdvice,
+  buttonLabel = "Read more",
+): CmsCard {
   return {
     id: crypto.randomUUID(),
     heading,
     body,
-    href: "",
+    href: "/#kontakt",
     buttonLabel,
   };
 }
 
 export function createOfferingItems(): CmsCard[] {
-  return [
-    createOfferingRow("Konsulttjänster"),
-    createOfferingRow("Interimstjänster"),
-    createOfferingRow("Rådgivning", offeringAdvice, "Les mer"),
-    createOfferingRow("Rekrytering"),
-  ];
+  return ["Konsulttjänster", "Interimstjänster", "Rådgivning", "Rekrytering"].map((heading) =>
+    createOfferingRow(heading),
+  );
 }
 
 export function articleParagraphs(body: string): string[] {

@@ -43,17 +43,18 @@ export type OfferingItem = {
   cta?: { label: string; href: string };
 };
 
+const offeringBody =
+  "Ibland behöver man ett bollplank, ett annat perspektiv och en djupare kompetens i ett ämne. Mindstreet hjälper dig med seniora rådgivare till ledningsgrupper, specifika projekt eller inför större beslut.";
+
+const offeringCta = { label: "Read more", href: "#kontakt" };
+
 export const offering: { title: string; items: OfferingItem[] } = {
   title: "Vårt erbjudande",
   items: [
-    { title: "Konsulttjänster" },
-    { title: "Interimstjänster" },
-    {
-      title: "Rådgivning",
-      body: "Ibland behöver man ett bollplank, ett annat perspektiv och en djupare kompetens i ett ämne. Mindstreet hjälper dig med seniora rådgivare till ledningsgrupper, specifika projekt eller inför större beslut.",
-      cta: { label: "Les mer", href: "#kontakt" },
-    },
-    { title: "Rekrytering" },
+    { title: "Konsulttjänster", body: offeringBody, cta: offeringCta },
+    { title: "Interimstjänster", body: offeringBody, cta: offeringCta },
+    { title: "Rådgivning", body: offeringBody, cta: offeringCta },
+    { title: "Rekrytering", body: offeringBody, cta: offeringCta },
   ],
 };
 

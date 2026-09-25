@@ -32,7 +32,7 @@ export function Offering() {
                   <div className="offering-body" id={panelId}>
                     <p>{item.body}</p>
                     {item.cta ? (
-                      <a className="btn btn-dark" href={item.cta.href}>
+                      <a className="btn offering-link" href={item.cta.href}>
                         {item.cta.label}
                       </a>
                     ) : null}
