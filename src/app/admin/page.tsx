@@ -68,7 +68,7 @@ function loadLibraryImages() {
   return libraryImagesRequest;
 }
 
-type Panel = "pages" | "create" | "components";
+type Panel = "pages" | "create" | "components" | "archive";
 
 const BLANK_TEMPLATE = "__blank__";
 
@@ -321,7 +321,7 @@ export default function AdminPage() {
     }
     closeDelete();
     setSelectedSlug(HOME_SELECTION);
-    setNotice("Sidan är borttagen och ligger kvar i arkivet.");
+    setNotice("Sidan är borttagen och ligger under Borttagna sidor och mallar.");
   }
 
   function confirmDeleteTemplate() {
@@ -342,7 +342,7 @@ export default function AdminPage() {
       setDraftBlocks([]);
     }
     closeDelete();
-    setNotice("Mallen är borttagen och ligger kvar i arkivet.");
+    setNotice("Mallen är borttagen och ligger under Borttagna sidor och mallar.");
   }
 
   function restoreTemplate(id: string) {
@@ -545,9 +545,24 @@ export default function AdminPage() {
             </button>
           ))}
         </nav>
-        <a className="admin-logout" href="/" data-label="Logga ut" aria-label="Logga ut">
-          <RailIcon name="logout" />
-        </a>
+        <div className="admin-rail-foot">
+          <button
+            type="button"
+            className={panel === "archive" ? "is-active" : undefined}
+            data-label="Borttagna sidor och mallar"
+            aria-label="Borttagna sidor och mallar"
+            aria-current={panel === "archive" ? "page" : undefined}
+            onClick={() => {
+              setPanel("archive");
+              setNotice(null);
+            }}
+          >
+            <RailIcon name="archive" />
+          </button>
+          <a className="admin-logout" href="/" data-label="Logga ut" aria-label="Logga ut">
+            <RailIcon name="logout" />
+          </a>
+        </div>
       </aside>
 
       <div className="admin-stage">
@@ -599,33 +614,6 @@ export default function AdminPage() {
                       </li>
                     ))}
                   </ul>
-                  {archive.length > 0 ? (
-                    <section className="admin-archive" aria-label="Borttagna sidor">
-                      <h3>Borttagna sidor</h3>
-                      <p>Kopian ligger kvar här tills sidan återställs.</p>
-                      <ul>
-                        {archive.map((entry) => {
-                          const page =
-                            entry.pages.find((item) => item.slug === entry.slug) ?? entry.pages[0];
-                          return (
-                            <li key={entry.id}>
-                              <span>{pageTitle(page)}</span>
-                              <small>
-                                {SITE_HOST}/{page.slug}
-                                {entry.pages.length > 1
-                                  ? ` · ${entry.pages.length - 1} undersidor`
-                                  : ""}
-                              </small>
-                              <small>{formatDeletedAt(entry.deletedAt)}</small>
-                              <button type="button" className="admin-quiet" onClick={() => restorePage(entry.id)}>
-                                Återställ
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </section>
-                  ) : null}
                 </section>
 
                 {homeSelected ? (
@@ -748,8 +736,8 @@ export default function AdminPage() {
                       <h3>Ta bort sidan</h3>
                       <p>
                         {pages.some((page) => page.parentSlug === selected.slug)
-                          ? "Sidan och dess undersidor försvinner från webbplatsen. En kopia sparas under Borttagna sidor och kan återställas."
-                          : "Sidan försvinner från webbplatsen. En kopia sparas under Borttagna sidor och kan återställas."}
+                          ? "Sidan och dess undersidor försvinner från webbplatsen. En kopia sparas under Borttagna sidor och mallar och kan återställas."
+                          : "Sidan försvinner från webbplatsen. En kopia sparas under Borttagna sidor och mallar och kan återställas."}
                       </p>
                       <button
                         type="button"
@@ -776,7 +764,7 @@ export default function AdminPage() {
           {panel === "create" ? (
             <div className="admin-panel">
               <PageHeading kicker="Ny sida" title="Skapa ny sida av mall" />
-              {templateOptions.length === 0 && templateArchive.length === 0 ? (
+              {templateOptions.length === 0 ? (
                 <p className="admin-empty">
                   Skapa en sidmall under Skapa ny sidmall utifrån komponenter.
                 </p>
@@ -829,8 +817,8 @@ export default function AdminPage() {
                       <section className="admin-danger" aria-label="Ta bort mall">
                         <h3>Ta bort mallen</h3>
                         <p>
-                          Mallen försvinner från listan. En kopia sparas under Borttagna mallar och kan
-                          återställas. Sidor som redan finns påverkas inte.
+                          Mallen försvinner från listan. En kopia sparas under Borttagna sidor och mallar
+                          och kan återställas. Sidor som redan finns påverkas inte.
                         </p>
                         <button
                           type="button"
@@ -839,30 +827,6 @@ export default function AdminPage() {
                         >
                           Ta bort mall
                         </button>
-                      </section>
-                    ) : null}
-                    {templateArchive.length > 0 ? (
-                      <section className="admin-archive" aria-label="Borttagna mallar">
-                        <h3>Borttagna mallar</h3>
-                        <p>Kopian ligger kvar här tills mallen återställs.</p>
-                        <ul>
-                          {templateArchive.map((entry) => (
-                            <li key={entry.id}>
-                              <span>{entry.template.title.trim() || entry.template.slug}</span>
-                              <small>
-                                {SITE_HOST}/{entry.slug}
-                              </small>
-                              <small>{formatDeletedAt(entry.deletedAt)}</small>
-                              <button
-                                type="button"
-                                className="admin-quiet"
-                                onClick={() => restoreTemplate(entry.id)}
-                              >
-                                Återställ
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
                       </section>
                     ) : null}
                   </section>
@@ -1204,6 +1168,73 @@ export default function AdminPage() {
                         })
                   }
                 />
+              </div>
+            </div>
+          ) : null}
+
+          {panel === "archive" ? (
+            <div className="admin-panel">
+              <PageHeading kicker="Borttagna" title="Borttagna sidor och mallar" />
+              <div className="admin-archive-layout">
+                <section className="admin-archive" aria-label="Borttagna sidor">
+                  <h3>Borttagna sidor</h3>
+                  <p>Kopian ligger kvar här tills sidan återställs.</p>
+                  {archive.length === 0 ? (
+                    <p className="admin-empty">Inga borttagna sidor.</p>
+                  ) : (
+                    <ul>
+                      {archive.map((entry) => {
+                        const page =
+                          entry.pages.find((item) => item.slug === entry.slug) ?? entry.pages[0];
+                        return (
+                          <li key={entry.id}>
+                            <span>{pageTitle(page)}</span>
+                            <small>
+                              {SITE_HOST}/{page.slug}
+                              {entry.pages.length > 1
+                                ? ` · ${entry.pages.length - 1} undersidor`
+                                : ""}
+                            </small>
+                            <small>{formatDeletedAt(entry.deletedAt)}</small>
+                            <button
+                              type="button"
+                              className="admin-quiet"
+                              onClick={() => restorePage(entry.id)}
+                            >
+                              Återställ
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+                <section className="admin-archive" aria-label="Borttagna mallar">
+                  <h3>Borttagna mallar</h3>
+                  <p>Kopian ligger kvar här tills mallen återställs.</p>
+                  {templateArchive.length === 0 ? (
+                    <p className="admin-empty">Inga borttagna mallar.</p>
+                  ) : (
+                    <ul>
+                      {templateArchive.map((entry) => (
+                        <li key={entry.id}>
+                          <span>{entry.template.title.trim() || entry.template.slug}</span>
+                          <small>
+                            {SITE_HOST}/{entry.slug}
+                          </small>
+                          <small>{formatDeletedAt(entry.deletedAt)}</small>
+                          <button
+                            type="button"
+                            className="admin-quiet"
+                            onClick={() => restoreTemplate(entry.id)}
+                          >
+                            Återställ
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
               </div>
             </div>
           ) : null}
@@ -2157,6 +2188,18 @@ function RailIcon({ name }: { name: Panel | "logout" }) {
         <rect x="13.5" y="3.5" width="7" height="7" rx="1.4" />
         <rect x="3.5" y="13.5" width="7" height="7" rx="1.4" />
         <rect x="13.5" y="13.5" width="7" height="7" rx="1.4" />
+      </svg>
+    );
+  }
+
+  if (name === "archive") {
+    return (
+      <svg {...props}>
+        <path d="M4.5 7h15" />
+        <path d="M9 7V5.2A1.2 1.2 0 0 1 10.2 4h3.6A1.2 1.2 0 0 1 15 5.2V7" />
+        <path d="M6.2 7l.7 11.2A1.5 1.5 0 0 0 8.4 19.5h7.2a1.5 1.5 0 0 0 1.5-1.3L17.8 7" />
+        <path d="M10 11v4.5" />
+        <path d="M14 11v4.5" />
       </svg>
     );
   }
