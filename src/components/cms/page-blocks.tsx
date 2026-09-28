@@ -9,6 +9,7 @@ import "./page-blocks.css";
 
 export function PageBlocks({ page, preview = false }: { page: CmsPage; preview?: boolean }) {
   const firstIsHero = page.blocks[0]?.type === "hero";
+  const parentHref = page.parentSlug ? `/${page.parentSlug}` : "/";
 
   return (
     <div id="top">
@@ -25,6 +26,7 @@ export function PageBlocks({ page, preview = false }: { page: CmsPage; preview?:
           block={block}
           withHeader={firstIsHero && index === 0}
           preview={preview}
+          parentHref={parentHref}
         />
       ))}
       {page.links.length > 0 ? (
@@ -47,10 +49,12 @@ function BlockView({
   block,
   withHeader,
   preview,
+  parentHref,
 }: {
   block: CmsBlock;
   withHeader: boolean;
   preview: boolean;
+  parentHref: string;
 }) {
   if (block.type === "hero") {
     return (
@@ -200,6 +204,10 @@ function BlockView({
     const after = quote ? quoteAfterIndex(block.quoteAfter, paragraphs.length) : -1;
     return (
       <ThemedSurface block={block}>
+        <a className="cms-article-back" href={parentHref}>
+          <ArticleBackIcon />
+          Tillbaka
+        </a>
         <article className="cms-article">
           {block.heading ? <h2>{block.heading}</h2> : null}
           <ModulePhoto src={block.image} />
@@ -325,6 +333,17 @@ function ModuleCopy({ block }: { block: CmsBlock }) {
         </a>
       ) : null}
     </div>
+  );
+}
+
+function ArticleBackIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M19 11H7.83l4.88-4.88a1 1 0 0 0-1.42-1.41l-6.59 6.58a1 1 0 0 0 0 1.42l6.59 6.58a1 1 0 0 0 1.42-1.41L7.83 13H19a1 1 0 0 0 0-2Z"
+      />
+    </svg>
   );
 }
 

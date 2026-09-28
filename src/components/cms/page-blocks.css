@@ -286,10 +286,30 @@
   color: #fff;
 }
 
+.cms-article-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 13px;
+  margin: 0;
+  padding: 48px var(--gutter) 0;
+  color: #122d2d;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 19px;
+  text-decoration: none;
+}
+
+.cms-article-back svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+  color: #000;
+}
+
 .cms-article {
   max-width: 720px;
   margin: 0 auto;
-  padding: 72px var(--gutter) 88px;
+  padding: 28px var(--gutter) 88px;
 }
 
 .cms-article h2 {
