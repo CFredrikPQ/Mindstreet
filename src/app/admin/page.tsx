@@ -14,6 +14,7 @@ import {
   cloneTemplateBlocks,
   createBlock,
   createCard,
+  createNewsItem,
   createOfferingRow,
   fieldsFor,
   library,
@@ -692,6 +693,13 @@ export default function AdminPage() {
                                     onChange={(items) => updateBlock(block.id, { items })}
                                   />
                                 ) : null}
+                                {block.type === "news" ? (
+                                  <NewsCards
+                                    items={block.items ?? []}
+                                    pages={pages}
+                                    onChange={(items) => updateBlock(block.id, { items })}
+                                  />
+                                ) : null}
                               </li>
                             ))}
                         </ol>
@@ -918,6 +926,13 @@ export default function AdminPage() {
                                   ) : null}
                                   {block.type === "offering" ? (
                                     <OfferingRows
+                                      items={block.items ?? []}
+                                      pages={pages}
+                                      onChange={(items) => updateDraftBlock(block.id, { items })}
+                                    />
+                                  ) : null}
+                                  {block.type === "news" ? (
+                                    <NewsCards
                                       items={block.items ?? []}
                                       pages={pages}
                                       onChange={(items) => updateDraftBlock(block.id, { items })}
@@ -1762,6 +1777,80 @@ function ExpertiseCards({
       <button type="button" onClick={() => onChange([...items, createCard()])}>
         Lägg till kort
       </button>
+    </fieldset>
+  );
+}
+
+function NewsCards({
+  items,
+  pages,
+  onChange,
+}: {
+  items: CmsCard[];
+  pages: CmsPage[];
+  onChange: (items: CmsCard[]) => void;
+}) {
+  function patch(id: string, next: Partial<CmsCard>) {
+    onChange(items.map((item) => (item.id === id ? { ...item, ...next } : item)));
+  }
+
+  return (
+    <fieldset className="admin-cards">
+      <legend>Nyheter</legend>
+      <button type="button" className="admin-cards-add" onClick={() => onChange([createNewsItem(), ...items])}>
+        Lägg till nyhet
+      </button>
+      <ol>
+        {items.map((item, index) => (
+          <li key={item.id}>
+            <div className="admin-block-head">
+              <strong>Nyhet {index + 1}</strong>
+              <button
+                type="button"
+                onClick={() => onChange(items.filter((row) => row.id !== item.id))}
+              >
+                Ta bort
+              </button>
+            </div>
+            <ImageField
+              src={item.image}
+              emptyLabel="Ingen bild vald."
+              chooseLabel={item.image ? "Byt bild" : "Välj bild"}
+              onChoose={(src) => patch(item.id, { image: src })}
+              onClear={() => patch(item.id, { image: "" })}
+            />
+            <label>
+              Publicerad
+              <input
+                type="date"
+                value={item.publishedAt ?? ""}
+                onChange={(event) => patch(item.id, { publishedAt: event.target.value })}
+              />
+            </label>
+            <label>
+              Rubrik
+              <input
+                value={item.heading}
+                onChange={(event) => patch(item.id, { heading: event.target.value })}
+              />
+            </label>
+            <label>
+              Undersida
+              <select
+                value={item.href}
+                onChange={(event) => patch(item.id, { href: event.target.value })}
+              >
+                <option value="">Ingen sida</option>
+                {pages.map((page) => (
+                  <option key={page.slug} value={`/${page.slug}`}>
+                    {page.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </li>
+        ))}
+      </ol>
     </fieldset>
   );
 }

@@ -104,6 +104,11 @@ export const library: {
     description: "Utfällbara rader med länk",
   },
   {
+    type: "news",
+    label: "Nyheter",
+    description: "Bild och rubrik, två och två",
+  },
+  {
     type: "statement",
     label: "Text och knapp",
     description: "Text med valfri knapp",
@@ -182,6 +187,10 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     heading: "Vårt erbjudande",
     body: "",
   },
+  news: {
+    heading: "Mindblowing news",
+    body: "",
+  },
   statement: {
     heading: "",
     body: "Tia nonsenis ex eum volenim dit aut mil estisit verupiet aut quis dus quunt eum fugiati duciiss imillutatur. Itatur aut eaquam quidendio ommod eseque sam faccatum et oditiae volorum",
@@ -232,6 +241,39 @@ export function createOfferingItems(): CmsCard[] {
   );
 }
 
+const newsStarters: { heading: string; image: string }[] = [
+  {
+    heading: "Behöver du en interimschef från branschen?",
+    image: "/images/news-1.jpg",
+  },
+  {
+    heading: "Tips på hur du lyckas med ett systembyte",
+    image: "/images/news-3.jpg",
+  },
+  {
+    heading: "Vi välkomnar ytterligare en stjärnkollega Anders Gustafsson till Mindstreet-teamet!",
+    image: "/images/news-2.jpg",
+  },
+  {
+    heading: "Tips på hur du lyckas med ett systembyte",
+    image: "/images/news-4.jpg",
+  },
+];
+
+export function createNewsItem(heading = "Ny nyhet", image = ""): CmsCard {
+  return {
+    id: crypto.randomUUID(),
+    heading,
+    body: "",
+    href: "",
+    image,
+  };
+}
+
+export function createNewsItems(): CmsCard[] {
+  return newsStarters.map((item) => createNewsItem(item.heading, item.image));
+}
+
 export function articleParagraphs(body: string): string[] {
   return body
     .split(/\n\s*\n/)
@@ -253,6 +295,7 @@ export function createBlock(type: BlockType): CmsBlock {
     ...defaults[type],
     ...(type === "expertise" ? { items: createExpertiseItems() } : {}),
     ...(type === "offering" ? { items: createOfferingItems() } : {}),
+    ...(type === "news" ? { items: createNewsItems() } : {}),
   };
 }
 
@@ -271,12 +314,15 @@ export function cloneTemplateBlocks(blocks: CmsBlock[]): CmsBlock[] {
       next.quote = "";
       if (block.quoteAfter !== undefined) next.quoteAfter = block.quoteAfter;
     }
-    if (block.type === "expertise" || block.type === "offering") {
+    if (block.type === "expertise" || block.type === "offering" || block.type === "news") {
       next.items = (block.items ?? []).map((item) => ({
         id: crypto.randomUUID(),
         heading: "",
         body: "",
-        href: "",
+        href: block.type === "news" ? item.href : "",
+        ...(block.type === "news"
+          ? { image: item.image ?? "", publishedAt: item.publishedAt ?? "" }
+          : {}),
         ...(block.type === "offering" || item.buttonLabel !== undefined
           ? { buttonLabel: "" }
           : {}),
@@ -372,7 +418,7 @@ export function fieldsFor(type: BlockType): BlockFields {
     return { ...none, heading: "Rubrik", body: "Liten rad", image: true, button: true };
   }
 
-  if (type === "expertise" || type === "offering") {
+  if (type === "expertise" || type === "offering" || type === "news") {
     return { ...none, heading: "Rubrik", body: null };
   }
 

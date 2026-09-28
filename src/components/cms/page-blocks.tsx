@@ -1,3 +1,4 @@
+import { NewsBlock } from "@/components/cms/news-block";
 import { OfferingBlock } from "@/components/cms/offering-block";
 import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
@@ -232,6 +233,10 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
 
   if (block.type === "offering") {
     return <OfferingBlock heading={block.heading} items={block.items ?? []} />;
+  }
+
+  if (block.type === "news") {
+    return <NewsBlock heading={block.heading} items={block.items ?? []} />;
   }
 
   if (block.type === "expertise") {

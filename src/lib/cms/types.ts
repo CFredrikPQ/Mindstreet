@@ -11,6 +11,7 @@ export type BlockType =
   | "article"
   | "expertise"
   | "offering"
+  | "news"
   | "statement";
 
 export type ImageSide = "left" | "right";
@@ -22,6 +23,8 @@ export type CmsCard = {
   heading: string;
   body: string;
   href: string;
+  image?: string;
+  publishedAt?: string;
   buttonLabel?: string;
 };
 
