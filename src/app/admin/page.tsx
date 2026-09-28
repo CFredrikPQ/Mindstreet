@@ -703,7 +703,6 @@ export default function AdminPage() {
                                 </div>
                                 <BlockFieldsEditor
                                   block={block}
-                                  quoteMode="toggle"
                                   onChange={(patch) => updateBlock(block.id, patch)}
                                   onImage={(src, field) => updateBlock(block.id, { [field]: src })}
                                 />
@@ -917,7 +916,6 @@ export default function AdminPage() {
                                   </div>
                                   <BlockFieldsEditor
                                     block={block}
-                                    quoteMode="locked"
                                     onChange={(patch) => updateDraftBlock(block.id, patch)}
                                     onImage={(src, field) => updateDraftBlock(block.id, { [field]: src })}
                                   />
@@ -1287,12 +1285,10 @@ function BlockFieldsEditor({
   block,
   onChange,
   onImage,
-  quoteMode,
 }: {
   block: CmsBlock;
   onChange: (patch: Partial<CmsBlock>) => void;
   onImage: (src: string, field: "image" | "image2") => void;
-  quoteMode: "toggle" | "locked";
 }) {
   const fields = fieldsFor(block.type);
   const quoteFields =
@@ -1368,7 +1364,7 @@ function BlockFieldsEditor({
           </label>
         )
       ) : null}
-      {fields.quote && quoteMode === "toggle" ? (
+      {fields.quote ? (
         <>
           <label className="admin-check">
             <input
@@ -1386,7 +1382,6 @@ function BlockFieldsEditor({
           {quoteFields}
         </>
       ) : null}
-      {fields.quote && quoteMode === "locked" ? quoteFields : null}
       {block.type === "statement" ? (
         <label>
           Justering
