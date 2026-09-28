@@ -15,6 +15,20 @@ export type CmsTemplate = {
   blocks: CmsBlock[];
 };
 
+export type TemplateArchiveEntry = {
+  id: string;
+  slug: string;
+  deletedAt: string;
+  template: CmsTemplate;
+  hiddenPage: boolean;
+};
+
+export type TemplateWriteResult = {
+  templates: CmsTemplate[] | null;
+  archive: TemplateArchiveEntry[] | null;
+  error: string | null;
+};
+
 export type ArchiveWriteResult = {
   next: CmsPage[] | null;
   archive: PageArchiveEntry[] | null;
@@ -26,6 +40,7 @@ export type ArchiveWriteResult = {
 const STORAGE_KEY = "mindstreet-cms-pages";
 const ARCHIVE_KEY = "mindstreet-cms-page-archive";
 const TEMPLATE_KEY = "mindstreet-cms-templates";
+const TEMPLATE_ARCHIVE_KEY = "mindstreet-cms-template-archive";
 const SEED_FLAG = "mindstreet-cms-seed-version";
 const SEED_VERSION = "expertomraden-v1";
 const RESERVED = new Set(["admin"]);
@@ -94,12 +109,107 @@ export function loadTemplates(): CmsTemplate[] {
   return readTemplates();
 }
 
-export function templateChoices(pages: CmsPage[], templates: CmsTemplate[]): CmsPage[] {
+export function loadTemplateArchive(): TemplateArchiveEntry[] {
+  if (typeof window === "undefined") return [];
+  return readTemplateArchive();
+}
+
+export function hiddenTemplateSlugs(archive: TemplateArchiveEntry[]): string[] {
+  return archive.filter((entry) => entry.hiddenPage).map((entry) => entry.slug);
+}
+
+export function templateChoices(
+  pages: CmsPage[],
+  templates: CmsTemplate[],
+  hidden: Iterable<string> = [],
+): CmsPage[] {
+  const hiddenSet = new Set(hidden);
   const live = new Set(pages.map((page) => page.slug));
   const retained = templates
-    .filter((template) => !live.has(template.slug))
+    .filter((template) => !live.has(template.slug) && !hiddenSet.has(template.slug))
     .map(templateAsPage);
-  return orderedPages([...pages, ...retained]);
+  return orderedPages([...pages.filter((page) => !hiddenSet.has(page.slug)), ...retained]);
+}
+
+export function deleteTemplateChoice(
+  slug: string,
+  pages: CmsPage[],
+  templates: CmsTemplate[],
+): TemplateWriteResult {
+  const live = pages.find((page) => page.slug === slug);
+  const stored = templates.find((template) => template.slug === slug);
+  if (!live && !stored) {
+    return { templates: null, archive: null, error: "Mallen finns inte." };
+  }
+
+  const template: CmsTemplate = live
+    ? {
+        slug: live.slug,
+        title: live.title,
+        parentSlug: live.parentSlug,
+        blocks: live.blocks,
+      }
+    : stored!;
+  const entry: TemplateArchiveEntry = {
+    id: crypto.randomUUID(),
+    slug,
+    deletedAt: new Date().toISOString(),
+    template,
+    hiddenPage: Boolean(live),
+  };
+  const previousArchive = readTemplateArchive();
+  const archive = [entry, ...previousArchive];
+  const archiveError = writeTemplateArchive(archive);
+  if (archiveError) {
+    return { templates: null, archive: null, error: archiveError };
+  }
+
+  if (live) return { templates, archive, error: null };
+
+  const nextTemplates = templates.filter((item) => item.slug !== slug);
+  const templatesError = writeTemplates(nextTemplates);
+  if (templatesError) {
+    writeTemplateArchive(previousArchive);
+    return { templates: null, archive: null, error: "Kunde inte ta bort mallen." };
+  }
+
+  return { templates: nextTemplates, archive, error: null };
+}
+
+export function restoreTemplateChoice(id: string, templates: CmsTemplate[]): TemplateWriteResult {
+  const previous = readTemplateArchive();
+  const entry = previous.find((item) => item.id === id);
+  if (!entry) {
+    return { templates: null, archive: null, error: "Arkivkopian finns inte." };
+  }
+
+  const archive = previous.filter((item) => item.id !== id);
+  if (entry.hiddenPage) {
+    const archiveError = writeTemplateArchive(archive);
+    if (archiveError) return { templates: null, archive: null, error: archiveError };
+    return { templates, archive, error: null };
+  }
+
+  if (templates.some((template) => template.slug === entry.slug)) {
+    return { templates: null, archive: null, error: "Mallen finns redan." };
+  }
+
+  const nextTemplates = [...templates, entry.template];
+  const templatesError = writeTemplates(nextTemplates);
+  if (templatesError) {
+    return { templates: null, archive: null, error: "Kunde inte återställa mallen." };
+  }
+
+  const archiveError = writeTemplateArchive(archive);
+  if (archiveError) {
+    return {
+      templates: nextTemplates,
+      archive: previous,
+      error: "Mallen är återställd, men arkivkopian kunde inte rensas.",
+    };
+  }
+
+  return { templates: nextTemplates, archive, error: null };
 }
 
 export function pagesRemovedWith(slug: string, pages: CmsPage[]): CmsPage[] {
@@ -231,6 +341,46 @@ function writeTemplates(templates: CmsTemplate[]): string | null {
   } catch {
     return "Kunde inte spara mallen. Sidan är kvar.";
   }
+}
+
+function readTemplateArchive(): TemplateArchiveEntry[] {
+  try {
+    const raw = window.localStorage.getItem(TEMPLATE_ARCHIVE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(hydrateTemplateArchiveEntry)
+      .filter((entry): entry is TemplateArchiveEntry => entry !== null);
+  } catch {
+    return [];
+  }
+}
+
+function writeTemplateArchive(entries: TemplateArchiveEntry[]): string | null {
+  try {
+    window.localStorage.setItem(TEMPLATE_ARCHIVE_KEY, JSON.stringify(entries));
+    return null;
+  } catch {
+    return "Kunde inte spara arkivet. Mallen är kvar.";
+  }
+}
+
+function hydrateTemplateArchiveEntry(value: unknown): TemplateArchiveEntry | null {
+  if (!value || typeof value !== "object") return null;
+  const entry = value as Partial<TemplateArchiveEntry>;
+  if (typeof entry.id !== "string" || typeof entry.slug !== "string" || typeof entry.deletedAt !== "string") {
+    return null;
+  }
+  const template = hydrateTemplate(entry.template);
+  if (!template || template.slug !== entry.slug) return null;
+  return {
+    id: entry.id,
+    slug: entry.slug,
+    deletedAt: entry.deletedAt,
+    template,
+    hiddenPage: entry.hiddenPage === true,
+  };
 }
 
 function hydrateTemplate(value: unknown): CmsTemplate | null {

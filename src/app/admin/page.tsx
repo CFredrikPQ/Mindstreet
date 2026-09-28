@@ -24,13 +24,17 @@ import {
 import {
   composeSlug,
   deletePagesToArchive,
+  deleteTemplateChoice,
+  hiddenTemplateSlugs,
   loadArchive,
   loadPages,
+  loadTemplateArchive,
   loadTemplates,
   orderedPages,
   pagesRemovedWith,
   pageTitle,
   restoreArchivedPages,
+  restoreTemplateChoice,
   rootPages,
   slugifyTitle,
   templateChoices,
@@ -38,6 +42,7 @@ import {
   writePages,
   type CmsTemplate,
   type PageArchiveEntry,
+  type TemplateArchiveEntry,
 } from "@/lib/cms/storage";
 import type { BlockTheme, BlockType, CmsBlock, CmsCard, CmsPage } from "@/lib/cms/types";
 import "./admin.css";
@@ -103,7 +108,9 @@ export default function AdminPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [archive, setArchive] = useState<PageArchiveEntry[]>([]);
   const [templates, setTemplates] = useState<CmsTemplate[]>([]);
+  const [templateArchive, setTemplateArchive] = useState<TemplateArchiveEntry[]>([]);
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<"page" | "template" | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -111,14 +118,17 @@ export default function AdminPage() {
   const dragOriginRef = useRef<number | null>(null);
   const pagesRef = useRef(pages);
   const templatesRef = useRef(templates);
+  const templateArchiveRef = useRef(templateArchive);
   pagesRef.current = pages;
   templatesRef.current = templates;
+  templateArchiveRef.current = templateArchive;
 
   useEffect(() => {
     const stored = loadPages();
     setPages(stored);
     setArchive(loadArchive());
     setTemplates(loadTemplates());
+    setTemplateArchive(loadTemplateArchive());
     setHome(loadHome());
     setSelectedSlug(HOME_SELECTION);
   }, []);
@@ -126,9 +136,16 @@ export default function AdminPage() {
   const homeSelected = selectedSlug === HOME_SELECTION;
   const selected = homeSelected ? null : pages.find((page) => page.slug === selectedSlug) ?? null;
   const listedPages = orderedPages(pages);
-  const templateOptions = templateChoices(pages, templates);
+  const templateOptions = templateChoices(pages, templates, hiddenTemplateSlugs(templateArchive));
   const templatePage = templateOptions.find((page) => page.slug === templateSlug) ?? null;
-  const pendingDelete = deleteSlug ? pages.find((page) => page.slug === deleteSlug) ?? null : null;
+  const pendingDelete =
+    deleteTarget === "page" && deleteSlug
+      ? (pages.find((page) => page.slug === deleteSlug) ?? null)
+      : null;
+  const pendingTemplateDelete =
+    deleteTarget === "template" && deleteSlug
+      ? (templateOptions.find((page) => page.slug === deleteSlug) ?? null)
+      : null;
   const pendingRemoved = deleteSlug ? pagesRemovedWith(deleteSlug, pages) : [];
   const parents = rootPages(pages);
   const previewSlug = composeSlug(parentSlug || undefined, slugifyTitle(titleInput));
@@ -165,7 +182,11 @@ export default function AdminPage() {
   function findTemplate(slug: string | null) {
     if (!slug) return null;
     return (
-      templateChoices(pagesRef.current, templatesRef.current).find((page) => page.slug === slug) ??
+      templateChoices(
+        pagesRef.current,
+        templatesRef.current,
+        hiddenTemplateSlugs(templateArchiveRef.current),
+      ).find((page) => page.slug === slug) ??
       null
     );
   }
@@ -238,9 +259,23 @@ export default function AdminPage() {
   }
 
   function openDelete(slug: string) {
+    setDeleteTarget("page");
     setDeleteSlug(slug);
     setDeleteInput("");
     setNotice(null);
+  }
+
+  function openDeleteTemplate(slug: string) {
+    setDeleteTarget("template");
+    setDeleteSlug(slug);
+    setDeleteInput("");
+    setNotice(null);
+  }
+
+  function closeDelete() {
+    setDeleteTarget(null);
+    setDeleteSlug(null);
+    setDeleteInput("");
   }
 
   function confirmDelete() {
@@ -259,10 +294,49 @@ export default function AdminPage() {
       templatesRef.current = result.templates;
       setTemplates(result.templates);
     }
-    setDeleteSlug(null);
-    setDeleteInput("");
+    closeDelete();
     setSelectedSlug(HOME_SELECTION);
     setNotice("Sidan är borttagen och ligger kvar i arkivet.");
+  }
+
+  function confirmDeleteTemplate() {
+    if (!deleteSlug) return;
+    const address = `${SITE_HOST}/${deleteSlug}`;
+    if (!addressMatches(deleteInput, address)) return;
+    const result = deleteTemplateChoice(deleteSlug, pagesRef.current, templatesRef.current);
+    if (result.error || !result.templates || !result.archive) {
+      setNotice(result.error ?? "Kunde inte ta bort mallen.");
+      return;
+    }
+    templatesRef.current = result.templates;
+    templateArchiveRef.current = result.archive;
+    setTemplates(result.templates);
+    setTemplateArchive(result.archive);
+    if (templateSlug === deleteSlug) {
+      setTemplateSlug(null);
+      setDraftBlocks([]);
+    }
+    closeDelete();
+    setNotice("Mallen är borttagen och ligger kvar i arkivet.");
+  }
+
+  function restoreTemplate(id: string) {
+    const result = restoreTemplateChoice(id, templatesRef.current);
+    if (!result.templates || !result.archive) {
+      setNotice(result.error ?? "Kunde inte återställa mallen.");
+      return;
+    }
+    templatesRef.current = result.templates;
+    templateArchiveRef.current = result.archive;
+    setTemplates(result.templates);
+    setTemplateArchive(result.archive);
+    const entry = templateArchive.find((item) => item.id === id);
+    if (entry) {
+      setTemplateSlug(entry.slug);
+      const live = pagesRef.current.find((page) => page.slug === entry.slug);
+      setDraftBlocks(cloneTemplateBlocks((live ?? entry.template).blocks));
+    }
+    setNotice(result.error ?? "Mallen är återställd.");
   }
 
   function restorePage(id: string) {
@@ -657,33 +731,37 @@ export default function AdminPage() {
           {panel === "create" ? (
             <div className="admin-panel">
               <PageHeading kicker="Ny sida" title="Skapa ny sida av mall" />
-              {templateOptions.length === 0 ? (
+              {templateOptions.length === 0 && templateArchive.length === 0 ? (
                 <p className="admin-empty">
                   Skapa en sidmall under Skapa ny sidmall utifrån komponenter.
                 </p>
               ) : (
                 <div className="admin-pages-layout is-create">
                   <section aria-label="Sidmallar">
-                    <label className="admin-pick" htmlFor="create-template">
-                      Sida
-                      <select
-                        id="create-template"
-                        value={templateSlug ?? ""}
-                        onChange={(event) => {
-                          const slug = event.target.value;
-                          if (slug) chooseTemplate(slug);
-                        }}
-                      >
-                        <option value="" disabled>
-                          Välj mall
-                        </option>
-                        {templateOptions.map((page) => (
-                          <option key={page.slug} value={page.slug}>
-                            {page.parentSlug ? `– ${pageTitle(page)}` : pageTitle(page)}
+                    {templateOptions.length === 0 ? (
+                      <p className="admin-empty">Inga sidmallar kvar.</p>
+                    ) : (
+                      <label className="admin-pick" htmlFor="create-template">
+                        Sida
+                        <select
+                          id="create-template"
+                          value={templateSlug ?? ""}
+                          onChange={(event) => {
+                            const slug = event.target.value;
+                            if (slug) chooseTemplate(slug);
+                          }}
+                        >
+                          <option value="" disabled>
+                            Välj mall
                           </option>
-                        ))}
-                      </select>
-                    </label>
+                          {templateOptions.map((page) => (
+                            <option key={page.slug} value={page.slug}>
+                              {page.parentSlug ? `– ${pageTitle(page)}` : pageTitle(page)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                     {templatePage ? (
                       <div className="admin-on-page">
                         <h3>På {pageTitle(templatePage)}</h3>
@@ -701,6 +779,46 @@ export default function AdminPage() {
                         )}
                         <LockedFooterNote />
                       </div>
+                    ) : null}
+                    {templatePage ? (
+                      <section className="admin-danger" aria-label="Ta bort mall">
+                        <h3>Ta bort mallen</h3>
+                        <p>
+                          Mallen försvinner från listan. En kopia sparas under Borttagna mallar och kan
+                          återställas. Sidor som redan finns påverkas inte.
+                        </p>
+                        <button
+                          type="button"
+                          className="admin-danger-button"
+                          onClick={() => openDeleteTemplate(templatePage.slug)}
+                        >
+                          Ta bort mall
+                        </button>
+                      </section>
+                    ) : null}
+                    {templateArchive.length > 0 ? (
+                      <section className="admin-archive" aria-label="Borttagna mallar">
+                        <h3>Borttagna mallar</h3>
+                        <p>Kopian ligger kvar här tills mallen återställs.</p>
+                        <ul>
+                          {templateArchive.map((entry) => (
+                            <li key={entry.id}>
+                              <span>{entry.template.title.trim() || entry.template.slug}</span>
+                              <small>
+                                {SITE_HOST}/{entry.slug}
+                              </small>
+                              <small>{formatDeletedAt(entry.deletedAt)}</small>
+                              <button
+                                type="button"
+                                className="admin-quiet"
+                                onClick={() => restoreTemplate(entry.id)}
+                              >
+                                Återställ
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </section>
                     ) : null}
                   </section>
 
@@ -1054,10 +1172,23 @@ export default function AdminPage() {
           value={deleteInput}
           onChange={setDeleteInput}
           onCancel={() => {
-            setDeleteSlug(null);
-            setDeleteInput("");
+            closeDelete();
           }}
           onConfirm={confirmDelete}
+        />
+      ) : null}
+      {pendingTemplateDelete ? (
+        <DeletePageDialog
+          mode="template"
+          title={pageTitle(pendingTemplateDelete)}
+          address={`${SITE_HOST}/${pendingTemplateDelete.slug}`}
+          childCount={0}
+          value={deleteInput}
+          onChange={setDeleteInput}
+          onCancel={() => {
+            closeDelete();
+          }}
+          onConfirm={confirmDeleteTemplate}
         />
       ) : null}
     </div>
@@ -1321,6 +1452,7 @@ function DeletePageDialog({
   onChange,
   onCancel,
   onConfirm,
+  mode = "page",
 }: {
   title: string;
   address: string;
@@ -1329,6 +1461,7 @@ function DeletePageDialog({
   onChange: (value: string) => void;
   onCancel: () => void;
   onConfirm: () => void;
+  mode?: "page" | "template";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const matches = addressMatches(value, address);
@@ -1365,9 +1498,11 @@ function DeletePageDialog({
         <h2 id="delete-page-title">Ta bort {title}?</h2>
         <p>
           Skriv <strong>{address}</strong> för att bekräfta.{" "}
-          {childCount > 0
-            ? `Sidan och ${childCount} ${childCount === 1 ? "undersida" : "undersidor"} tas bort från webbplatsen.`
-            : "Sidan tas bort från webbplatsen."}{" "}
+          {mode === "template"
+            ? "Mallen tas bort från listan. Sidor som redan finns påverkas inte."
+            : childCount > 0
+              ? `Sidan och ${childCount} ${childCount === 1 ? "undersida" : "undersidor"} tas bort från webbplatsen.`
+              : "Sidan tas bort från webbplatsen."}{" "}
           Kopian sparas i arkivet.
         </p>
         <label>
@@ -1386,7 +1521,7 @@ function DeletePageDialog({
             Avbryt
           </button>
           <button type="submit" className="admin-danger-button" disabled={!matches}>
-            Ta bort sida
+            {mode === "template" ? "Ta bort mall" : "Ta bort sida"}
           </button>
         </div>
       </form>
