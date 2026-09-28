@@ -437,7 +437,10 @@ export default function AdminPage() {
                           setNotice(null);
                         }}
                       >
-                        <span>Startsida</span>
+                        <span className="admin-page-row">
+                          <span className="admin-page-name">Startsida</span>
+                          <span className="admin-status is-live">Publicerad</span>
+                        </span>
                         <small>{SITE_HOST}</small>
                       </button>
                     </li>
@@ -451,10 +454,14 @@ export default function AdminPage() {
                             setNotice(null);
                           }}
                         >
-                          <span>{pageTitle(page)}</span>
+                          <span className="admin-page-row">
+                            <span className="admin-page-name">{pageTitle(page)}</span>
+                            <span className={page.published ? "admin-status is-live" : "admin-status"}>
+                              {page.published ? "Publicerad" : "Utkast"}
+                            </span>
+                          </span>
                           <small>
                             {SITE_HOST}/{page.slug}
-                            {page.published ? "" : " · Utkast"}
                           </small>
                         </button>
                       </li>

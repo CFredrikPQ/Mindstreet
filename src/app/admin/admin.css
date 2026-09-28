@@ -456,6 +456,38 @@
   border-color: var(--navy);
 }
 
+.admin-page-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-page-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-status {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f3e4dc;
+  color: #8a341c;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.admin-status.is-live {
+  background: #1c7c4a;
+  color: #fff;
+}
+
 .admin-page-list small,
 .admin-library span,
 .admin-on-page span {
