@@ -7,7 +7,7 @@ import { articleParagraphs, quoteAfterIndex, resolveTheme } from "@/lib/cms/libr
 import type { CmsBlock, CmsPage } from "@/lib/cms/types";
 import "./page-blocks.css";
 
-export function PageBlocks({ page }: { page: CmsPage }) {
+export function PageBlocks({ page, preview = false }: { page: CmsPage; preview?: boolean }) {
   const firstIsHero = page.blocks[0]?.type === "hero";
 
   return (
@@ -20,7 +20,12 @@ export function PageBlocks({ page }: { page: CmsPage }) {
         </header>
       )}
       {page.blocks.map((block, index) => (
-        <BlockView key={block.id} block={block} withHeader={firstIsHero && index === 0} />
+        <BlockView
+          key={block.id}
+          block={block}
+          withHeader={firstIsHero && index === 0}
+          preview={preview}
+        />
       ))}
       {page.links.length > 0 ? (
         <nav className="cms-page-links" aria-label="Länkar">
@@ -38,7 +43,15 @@ export function PageBlocks({ page }: { page: CmsPage }) {
   );
 }
 
-function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean }) {
+function BlockView({
+  block,
+  withHeader,
+  preview,
+}: {
+  block: CmsBlock;
+  withHeader: boolean;
+  preview: boolean;
+}) {
   if (block.type === "hero") {
     return (
       <section className="hero cms-hero">
@@ -236,7 +249,7 @@ function BlockView({ block, withHeader }: { block: CmsBlock; withHeader: boolean
   }
 
   if (block.type === "news") {
-    return <NewsBlock heading={block.heading} items={block.items ?? []} />;
+    return <NewsBlock heading={block.heading} items={block.items ?? []} preview={preview} />;
   }
 
   if (block.type === "expertise") {

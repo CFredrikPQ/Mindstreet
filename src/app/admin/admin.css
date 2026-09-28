@@ -566,9 +566,16 @@
   color: #8a341c;
 }
 
-.admin-publish.is-live {
+.admin-publish.is-live,
+.admin-block-head .admin-publish.is-live {
   background: #1c7c4a;
   color: #fff;
+}
+
+.admin-block-head .admin-publish {
+  border: 0;
+  background: #f3e4dc;
+  color: #8a341c;
 }
 
 .admin-danger {

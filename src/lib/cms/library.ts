@@ -267,6 +267,7 @@ export function createNewsItem(heading = "Ny nyhet", image = ""): CmsCard {
     body: "",
     href: "",
     image,
+    published: false,
   };
 }
 
@@ -321,7 +322,7 @@ export function cloneTemplateBlocks(blocks: CmsBlock[]): CmsBlock[] {
         body: "",
         href: block.type === "news" ? item.href : "",
         ...(block.type === "news"
-          ? { image: item.image ?? "", publishedAt: item.publishedAt ?? "" }
+          ? { image: item.image ?? "", publishedAt: item.publishedAt ?? "", published: false }
           : {}),
         ...(block.type === "offering" || item.buttonLabel !== undefined
           ? { buttonLabel: "" }

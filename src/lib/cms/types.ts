@@ -25,6 +25,7 @@ export type CmsCard = {
   href: string;
   image?: string;
   publishedAt?: string;
+  published?: boolean;
   buttonLabel?: string;
 };
 

@@ -30,12 +30,21 @@ function formatNewsDate(value: string): string {
   return `${String(day).padStart(2, "0")} ${months[month - 1]} ${year}`;
 }
 
-export function NewsBlock({ heading, items }: { heading: string; items: CmsCard[] }) {
+export function NewsBlock({
+  heading,
+  items,
+  preview = false,
+}: {
+  heading: string;
+  items: CmsCard[];
+  preview?: boolean;
+}) {
+  const shown = preview ? items : items.filter((item) => item.published !== false);
   const [page, setPage] = useState(0);
-  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
-  const visible = items.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-  const showPager = items.length >= 5;
+  const visible = shown.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const showPager = shown.length >= 5;
 
   return (
     <section className="news">
@@ -44,7 +53,7 @@ export function NewsBlock({ heading, items }: { heading: string; items: CmsCard[
         <div className="news-grid">
           {visible.map((item) => (
             <article key={item.id}>
-              <NewsCard item={item} />
+              <NewsCard item={item} draft={preview && item.published === false} />
             </article>
           ))}
         </div>
@@ -72,7 +81,7 @@ export function NewsBlock({ heading, items }: { heading: string; items: CmsCard[
   );
 }
 
-function NewsCard({ item }: { item: CmsCard }) {
+function NewsCard({ item, draft }: { item: CmsCard; draft: boolean }) {
   const href = item.href.trim();
   const photo = item.image ? (
     <img src={item.image} alt="" />
@@ -86,10 +95,12 @@ function NewsCard({ item }: { item: CmsCard }) {
       {dateLabel}
     </time>
   ) : null;
+  const badge = draft ? <span className="news-card-draft">Utkast</span> : null;
 
   if (!href) {
     return (
       <div className="news-card">
+        {badge}
         {photo}
         {date}
         {title}
@@ -99,6 +110,7 @@ function NewsCard({ item }: { item: CmsCard }) {
 
   return (
     <a className="news-card" href={href}>
+      {badge}
       {photo}
       {date}
       {title}

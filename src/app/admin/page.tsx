@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { HomeEditor } from "@/components/cms/home-editor";
 import { applyInline } from "@/lib/cms/inline";
 import { LockedFooterNote } from "@/components/cms/locked-footer";
@@ -693,9 +694,11 @@ export default function AdminPage() {
                                     >
                                       Ner
                                     </button>
-                                    <button type="button" onClick={() => removeBlock(block.id)}>
-                                      Ta bort
-                                    </button>
+                                    {block.type === "news" ? null : (
+                                      <button type="button" onClick={() => removeBlock(block.id)}>
+                                        Ta bort
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                                 <BlockFieldsEditor
@@ -1537,7 +1540,7 @@ function DeletePageDialog({
   onChange: (value: string) => void;
   onCancel: () => void;
   onConfirm: () => void;
-  mode?: "page" | "template";
+  mode?: "page" | "template" | "news";
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const matches = addressMatches(value, address);
@@ -1574,15 +1577,21 @@ function DeletePageDialog({
         <h2 id="delete-page-title">Ta bort {title}?</h2>
         <p>
           Skriv <strong>{address}</strong> för att bekräfta.{" "}
-          {mode === "template"
-            ? "Mallen tas bort från listan. Sidor som redan finns påverkas inte."
-            : childCount > 0
-              ? `Sidan och ${childCount} ${childCount === 1 ? "undersida" : "undersidor"} tas bort från webbplatsen.`
-              : "Sidan tas bort från webbplatsen."}{" "}
-          Kopian sparas i arkivet.
+          {mode === "news" ? (
+            "Nyheten tas bort från sidan."
+          ) : (
+            <>
+              {mode === "template"
+                ? "Mallen tas bort från listan. Sidor som redan finns påverkas inte."
+                : childCount > 0
+                  ? `Sidan och ${childCount} ${childCount === 1 ? "undersida" : "undersidor"} tas bort från webbplatsen.`
+                  : "Sidan tas bort från webbplatsen."}{" "}
+              Kopian sparas i arkivet.
+            </>
+          )}
         </p>
         <label>
-          Adress
+          {mode === "news" ? "Rubrik" : "Adress"}
           <input
             ref={inputRef}
             value={value}
@@ -1597,7 +1606,7 @@ function DeletePageDialog({
             Avbryt
           </button>
           <button type="submit" className="admin-danger-button" disabled={!matches}>
-            {mode === "template" ? "Ta bort mall" : "Ta bort sida"}
+            {mode === "news" ? "Ta bort nyhet" : mode === "template" ? "Ta bort mall" : "Ta bort sida"}
           </button>
         </div>
       </form>
@@ -1673,7 +1682,7 @@ function PageMiniature({
             aria-hidden="true"
             style={{ width: PREVIEW_WIDTH, zoom: scale }}
           >
-            {children ?? (page ? <PageBlocks page={page} /> : null)}
+            {children ?? (page ? <PageBlocks page={page} preview /> : null)}
           </div>
           {showHint ? (
             <p className="admin-miniature-hint">
@@ -1842,6 +1851,11 @@ function ExpertiseCards({
   );
 }
 
+function newsConfirmText(item: CmsCard, index: number) {
+  const heading = item.heading.trim();
+  return heading || `Nyhet ${index + 1}`;
+}
+
 function NewsCards({
   items,
   pages,
@@ -1851,8 +1865,30 @@ function NewsCards({
   pages: CmsPage[];
   onChange: (items: CmsCard[]) => void;
 }) {
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [deleteInput, setDeleteInput] = useState("");
+  const pendingIndex = items.findIndex((item) => item.id === pendingId);
+  const pending = pendingIndex >= 0 ? items[pendingIndex] : null;
+  const confirmText = pending ? newsConfirmText(pending, pendingIndex) : "";
+
   function patch(id: string, next: Partial<CmsCard>) {
     onChange(items.map((item) => (item.id === id ? { ...item, ...next } : item)));
+  }
+
+  function openItemDelete(id: string) {
+    setPendingId(id);
+    setDeleteInput("");
+  }
+
+  function closeItemDelete() {
+    setPendingId(null);
+    setDeleteInput("");
+  }
+
+  function confirmItemDelete() {
+    if (!pending || !addressMatches(deleteInput, confirmText)) return;
+    onChange(items.filter((row) => row.id !== pending.id));
+    closeItemDelete();
   }
 
   return (
@@ -1866,12 +1902,19 @@ function NewsCards({
           <li key={item.id}>
             <div className="admin-block-head">
               <strong>Nyhet {index + 1}</strong>
-              <button
-                type="button"
-                onClick={() => onChange(items.filter((row) => row.id !== item.id))}
-              >
-                Ta bort
-              </button>
+              <div>
+                <button
+                  type="button"
+                  className={item.published === false ? "admin-publish" : "admin-publish is-live"}
+                  aria-pressed={item.published !== false}
+                  onClick={() => patch(item.id, { published: item.published === false })}
+                >
+                  {item.published === false ? "Ej publiserad" : "Publiserad"}
+                </button>
+                <button type="button" onClick={() => openItemDelete(item.id)}>
+                  Ta bort
+                </button>
+              </div>
             </div>
             <ImageField
               src={item.image}
@@ -1912,6 +1955,21 @@ function NewsCards({
           </li>
         ))}
       </ol>
+      {pending
+        ? createPortal(
+            <DeletePageDialog
+              mode="news"
+              title={confirmText}
+              address={confirmText}
+              childCount={0}
+              value={deleteInput}
+              onChange={setDeleteInput}
+              onCancel={closeItemDelete}
+              onConfirm={confirmItemDelete}
+            />,
+            document.body,
+          )
+        : null}
     </fieldset>
   );
 }
