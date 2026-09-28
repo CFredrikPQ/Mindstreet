@@ -26,14 +26,17 @@ import {
   deletePagesToArchive,
   loadArchive,
   loadPages,
+  loadTemplates,
   orderedPages,
   pagesRemovedWith,
   pageTitle,
   restoreArchivedPages,
   rootPages,
   slugifyTitle,
+  templateChoices,
   validateSlug,
   writePages,
+  type CmsTemplate,
   type PageArchiveEntry,
 } from "@/lib/cms/storage";
 import type { BlockTheme, BlockType, CmsBlock, CmsCard, CmsPage } from "@/lib/cms/types";
@@ -99,6 +102,7 @@ export default function AdminPage() {
   const [lastSavedSlug, setLastSavedSlug] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [archive, setArchive] = useState<PageArchiveEntry[]>([]);
+  const [templates, setTemplates] = useState<CmsTemplate[]>([]);
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -106,12 +110,15 @@ export default function AdminPage() {
   const dragIndexRef = useRef<number | null>(null);
   const dragOriginRef = useRef<number | null>(null);
   const pagesRef = useRef(pages);
+  const templatesRef = useRef(templates);
   pagesRef.current = pages;
+  templatesRef.current = templates;
 
   useEffect(() => {
     const stored = loadPages();
     setPages(stored);
     setArchive(loadArchive());
+    setTemplates(loadTemplates());
     setHome(loadHome());
     setSelectedSlug(HOME_SELECTION);
   }, []);
@@ -119,7 +126,8 @@ export default function AdminPage() {
   const homeSelected = selectedSlug === HOME_SELECTION;
   const selected = homeSelected ? null : pages.find((page) => page.slug === selectedSlug) ?? null;
   const listedPages = orderedPages(pages);
-  const templatePage = listedPages.find((page) => page.slug === templateSlug) ?? null;
+  const templateOptions = templateChoices(pages, templates);
+  const templatePage = templateOptions.find((page) => page.slug === templateSlug) ?? null;
   const pendingDelete = deleteSlug ? pages.find((page) => page.slug === deleteSlug) ?? null : null;
   const pendingRemoved = deleteSlug ? pagesRemovedWith(deleteSlug, pages) : [];
   const parents = rootPages(pages);
@@ -154,17 +162,25 @@ export default function AdminPage() {
     setNotice(null);
   }
 
+  function findTemplate(slug: string | null) {
+    if (!slug) return null;
+    return (
+      templateChoices(pagesRef.current, templatesRef.current).find((page) => page.slug === slug) ??
+      null
+    );
+  }
+
   function resetCreateForm() {
     setTitleInput("");
     setParentSlug("");
     setPublished(true);
-    const template = pagesRef.current.find((page) => page.slug === templateSlug);
+    const template = findTemplate(templateSlug);
     setDraftBlocks(template ? cloneTemplateBlocks(template.blocks) : []);
   }
 
   function chooseTemplate(slug: string) {
     if (slug === templateSlug) return;
-    const template = pagesRef.current.find((page) => page.slug === slug);
+    const template = findTemplate(slug);
     setTemplateSlug(slug);
     setDraftBlocks(template ? cloneTemplateBlocks(template.blocks) : []);
     setNotice(null);
@@ -178,7 +194,7 @@ export default function AdminPage() {
       return;
     }
 
-    if (!templateSlug || !pagesRef.current.some((page) => page.slug === templateSlug)) {
+    if (!findTemplate(templateSlug)) {
       setNotice("Välj en sidmall till vänster.");
       return;
     }
@@ -239,6 +255,10 @@ export default function AdminPage() {
     pagesRef.current = result.next;
     setPages(result.next);
     setArchive(result.archive);
+    if (result.templates) {
+      templatesRef.current = result.templates;
+      setTemplates(result.templates);
+    }
     setDeleteSlug(null);
     setDeleteInput("");
     setSelectedSlug(HOME_SELECTION);
@@ -637,7 +657,7 @@ export default function AdminPage() {
           {panel === "create" ? (
             <div className="admin-panel">
               <PageHeading kicker="Ny sida" title="Skapa ny sida av mall" />
-              {listedPages.length === 0 ? (
+              {templateOptions.length === 0 ? (
                 <p className="admin-empty">
                   Skapa en sidmall under Skapa ny sidmall utifrån komponenter.
                 </p>
@@ -657,7 +677,7 @@ export default function AdminPage() {
                         <option value="" disabled>
                           Välj mall
                         </option>
-                        {listedPages.map((page) => (
+                        {templateOptions.map((page) => (
                           <option key={page.slug} value={page.slug}>
                             {page.parentSlug ? `– ${pageTitle(page)}` : pageTitle(page)}
                           </option>

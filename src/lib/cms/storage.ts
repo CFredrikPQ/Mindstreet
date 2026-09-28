@@ -1,5 +1,5 @@
 import { seedPages } from "@/lib/cms/seed";
-import type { CmsLink, CmsPage } from "@/lib/cms/types";
+import type { CmsBlock, CmsLink, CmsPage } from "@/lib/cms/types";
 
 export type PageArchiveEntry = {
   id: string;
@@ -8,15 +8,24 @@ export type PageArchiveEntry = {
   pages: CmsPage[];
 };
 
+export type CmsTemplate = {
+  slug: string;
+  title: string;
+  parentSlug?: string;
+  blocks: CmsBlock[];
+};
+
 export type ArchiveWriteResult = {
   next: CmsPage[] | null;
   archive: PageArchiveEntry[] | null;
+  templates?: CmsTemplate[] | null;
   slug?: string;
   error: string | null;
 };
 
 const STORAGE_KEY = "mindstreet-cms-pages";
 const ARCHIVE_KEY = "mindstreet-cms-page-archive";
+const TEMPLATE_KEY = "mindstreet-cms-templates";
 const SEED_FLAG = "mindstreet-cms-seed-version";
 const SEED_VERSION = "expertomraden-v1";
 const RESERVED = new Set(["admin"]);
@@ -80,6 +89,19 @@ export function loadArchive(): PageArchiveEntry[] {
   return readArchive();
 }
 
+export function loadTemplates(): CmsTemplate[] {
+  if (typeof window === "undefined") return [];
+  return readTemplates();
+}
+
+export function templateChoices(pages: CmsPage[], templates: CmsTemplate[]): CmsPage[] {
+  const live = new Set(pages.map((page) => page.slug));
+  const retained = templates
+    .filter((template) => !live.has(template.slug))
+    .map(templateAsPage);
+  return orderedPages([...pages, ...retained]);
+}
+
 export function pagesRemovedWith(slug: string, pages: CmsPage[]): CmsPage[] {
   const removed = new Set<string>([slug]);
   let grew = true;
@@ -107,6 +129,11 @@ export function deletePagesToArchive(slug: string, pages: CmsPage[]): ArchiveWri
     deletedAt: new Date().toISOString(),
     pages: removed,
   };
+  const templates = retainTemplates(removed);
+  if (!templates) {
+    return { next: null, archive: null, error: "Kunde inte spara mallen. Sidan är kvar." };
+  }
+
   const previous = readArchive();
   const archive = [entry, ...previous];
   const archiveError = writeArchive(archive);
@@ -121,7 +148,7 @@ export function deletePagesToArchive(slug: string, pages: CmsPage[]): ArchiveWri
     return { next: null, archive: null, error: pagesError };
   }
 
-  return { next, archive, error: null };
+  return { next, archive, templates, error: null };
 }
 
 export function restoreArchivedPages(id: string, pages: CmsPage[]): ArchiveWriteResult {
@@ -158,6 +185,63 @@ export function restoreArchivedPages(id: string, pages: CmsPage[]): ArchiveWrite
   }
 
   return { next, archive, slug: entry.slug, error: null };
+}
+
+function retainTemplates(removed: CmsPage[]): CmsTemplate[] | null {
+  const bySlug = new Map(readTemplates().map((template) => [template.slug, template]));
+  for (const page of removed) {
+    bySlug.set(page.slug, {
+      slug: page.slug,
+      title: page.title,
+      parentSlug: page.parentSlug,
+      blocks: page.blocks,
+    });
+  }
+  const templates = [...bySlug.values()];
+  return writeTemplates(templates) ? null : templates;
+}
+
+function templateAsPage(template: CmsTemplate): CmsPage {
+  return {
+    slug: template.slug,
+    title: template.title,
+    parentSlug: template.parentSlug,
+    published: false,
+    links: [],
+    blocks: template.blocks,
+  };
+}
+
+function readTemplates(): CmsTemplate[] {
+  try {
+    const raw = window.localStorage.getItem(TEMPLATE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(hydrateTemplate).filter((template): template is CmsTemplate => template !== null);
+  } catch {
+    return [];
+  }
+}
+
+function writeTemplates(templates: CmsTemplate[]): string | null {
+  try {
+    window.localStorage.setItem(TEMPLATE_KEY, JSON.stringify(templates));
+    return null;
+  } catch {
+    return "Kunde inte spara mallen. Sidan är kvar.";
+  }
+}
+
+function hydrateTemplate(value: unknown): CmsTemplate | null {
+  const page = hydratePage(value);
+  if (!page) return null;
+  return {
+    slug: page.slug,
+    title: page.title,
+    parentSlug: page.parentSlug,
+    blocks: page.blocks,
+  };
 }
 
 function readArchive(): PageArchiveEntry[] {
