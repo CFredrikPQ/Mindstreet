@@ -85,6 +85,21 @@ function DragGrip() {
   );
 }
 
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <path
+        d="M3.2 4.4h9.6M6.3 4.4V3.2A.8.8 0 0 1 7.1 2.4h1.8a.8.8 0 0 1 .8.8v1.2M4.5 4.4l.55 8a.9.9 0 0 0 .9.8h4.1a.9.9 0 0 0 .9-.8l.55-8M6.7 6.7v4.2M9.3 6.7v4.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const panels: { id: Panel; kicker: string; title: string }[] = [
   { id: "pages", kicker: "Befintliga", title: "Publicerade sidor" },
   { id: "create", kicker: "Ny sida", title: "Skapa ny sida av mall" },
@@ -156,6 +171,15 @@ export default function AdminPage() {
     : (pages.find((page) => page.slug === componentTarget) ?? null);
   const componentBlocks = blankMode ? blankBlocks : (componentPage?.blocks ?? []);
   const blankSlug = composeSlug(blankParent || undefined, slugifyTitle(blankTitle));
+  const templateDraftTitle =
+    blankMode || !componentPage ? blankTitle.trim() || "Ny sidmall" : pageTitle(componentPage);
+  const templateDraftUrl = blankMode
+    ? blankSlug
+      ? `${SITE_HOST}/${blankSlug}`
+      : `${SITE_HOST}/`
+    : componentPage
+      ? `${SITE_HOST}/${componentPage.slug}`
+      : SITE_HOST;
 
   function persist(updater: (current: CmsPage[]) => CmsPage[]) {
     const next = updater(pagesRef.current);
@@ -447,8 +471,21 @@ export default function AdminPage() {
     );
   }
 
-  function moveComponentBlock(index: number, direction: -1 | 1) {
-    reorderComponentBlocks(index, index + direction < index ? index + direction : index + direction + 1);
+  function removeComponentBlock(id: string) {
+    if (blankMode) {
+      setBlankBlocks((current) => current.filter((block) => block.id !== id));
+      setNotice(null);
+      return;
+    }
+    if (!componentPage) return;
+    const slug = componentPage.slug;
+    persist((current) =>
+      current.map((page) =>
+        page.slug === slug
+          ? { ...page, blocks: page.blocks.filter((block) => block.id !== id) }
+          : page,
+      ),
+    );
   }
 
   function moveBlock(index: number, direction: -1 | 1) {
@@ -972,71 +1009,9 @@ export default function AdminPage() {
             <div className="admin-panel">
               <PageHeading kicker="Bibliotek" title="Skapa ny sidmall utifrån komponenter" />
               <div className="admin-pages-layout is-components">
-                <section aria-label="Komponenter">
-                  <label className="admin-pick" htmlFor="component-target">
-                    Utgå från
-                    <select
-                      id="component-target"
-                      value={blankMode ? BLANK_TEMPLATE : (componentPage?.slug ?? BLANK_TEMPLATE)}
-                      onChange={(event) => {
-                        setComponentTarget(event.target.value);
-                        setNotice(null);
-                      }}
-                    >
-                      <option value={BLANK_TEMPLATE}>Blank sida</option>
-                      {listedPages.map((page) => (
-                        <option key={page.slug} value={page.slug}>
-                          {page.parentSlug ? `– ${pageTitle(page)}` : pageTitle(page)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {blankMode ? (
-                    <div className="admin-create-fields">
-                      <label htmlFor="blank-title">
-                        Sidnamn
-                        <input
-                          id="blank-title"
-                          value={blankTitle}
-                          onChange={(event) => setBlankTitle(event.target.value)}
-                          placeholder="Ny sidmall"
-                        />
-                      </label>
-                      <p className="admin-derived-url">
-                        <span>URL</span>
-                        {blankSlug ? `${SITE_HOST}/${blankSlug}` : `${SITE_HOST}/`}
-                      </p>
-                      <label htmlFor="blank-parent">
-                        Förälder
-                        <select
-                          id="blank-parent"
-                          value={blankParent}
-                          onChange={(event) => setBlankParent(event.target.value)}
-                        >
-                          <option value="">Ingen</option>
-                          {parents.map((page) => (
-                            <option key={page.slug} value={page.slug}>
-                              {pageTitle(page)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <button type="button" className="admin-primary" onClick={saveBlankTemplate}>
-                        Spara sidmall
-                      </button>
-                    </div>
-                  ) : null}
-
-                  <BlockCatalog onAdd={addBlock} />
-
+                <section aria-label="På ny sidmall">
                   <div className="admin-on-page">
-                    <h3>
-                      På{" "}
-                      {blankMode || !componentPage
-                        ? blankTitle.trim() || "ny sidmall"
-                        : pageTitle(componentPage)}
-                    </h3>
+                    <h3>På {templateDraftTitle}</h3>
                     {componentBlocks.length === 0 ? (
                       <p className="admin-empty">Inga komponenter på sidan ännu.</p>
                     ) : (
@@ -1119,22 +1094,14 @@ export default function AdminPage() {
                                 </span>
                                 <strong>{blockLabel(block.type)}</strong>
                               </span>
-                              <div>
-                                <button
-                                  type="button"
-                                  onClick={() => moveComponentBlock(index, -1)}
-                                  disabled={index === 0}
-                                >
-                                  Upp
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => moveComponentBlock(index, 1)}
-                                  disabled={index === componentBlocks.length - 1}
-                                >
-                                  Ner
-                                </button>
-                              </div>
+                              <button
+                                type="button"
+                                className="admin-icon-button"
+                                aria-label={`Ta bort ${blockLabel(block.type)}`}
+                                onClick={() => removeComponentBlock(block.id)}
+                              >
+                                <TrashIcon />
+                              </button>
                             </div>
                             <span>{block.heading}</span>
                           </li>
@@ -1145,21 +1112,84 @@ export default function AdminPage() {
                   </div>
                 </section>
 
+                <section aria-label="Komponenter">
+                  <div className="admin-main-head">
+                    <div>
+                      <p className="admin-kicker">Ny sidmall</p>
+                      <h2 className="admin-title">{templateDraftTitle}</h2>
+                      <p className="admin-preview">{templateDraftUrl}</p>
+                    </div>
+                    {blankMode ? (
+                      <div className="admin-main-actions">
+                        <button type="button" className="admin-primary" onClick={saveBlankTemplate}>
+                          Spara sidmall
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <label className="admin-pick" htmlFor="component-target">
+                    Utgå från
+                    <select
+                      id="component-target"
+                      value={blankMode ? BLANK_TEMPLATE : (componentPage?.slug ?? BLANK_TEMPLATE)}
+                      onChange={(event) => {
+                        setComponentTarget(event.target.value);
+                        setNotice(null);
+                      }}
+                    >
+                      <option value={BLANK_TEMPLATE}>Blank sida</option>
+                      {listedPages.map((page) => (
+                        <option key={page.slug} value={page.slug}>
+                          {page.parentSlug ? `– ${pageTitle(page)}` : pageTitle(page)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {blankMode ? (
+                    <div className="admin-create-fields">
+                      <label htmlFor="blank-title">
+                        Sidnamn
+                        <input
+                          id="blank-title"
+                          value={blankTitle}
+                          onChange={(event) => setBlankTitle(event.target.value)}
+                          placeholder="Ny sidmall"
+                        />
+                      </label>
+                      <p className="admin-derived-url">
+                        <span>URL</span>
+                        {templateDraftUrl}
+                      </p>
+                      <label htmlFor="blank-parent">
+                        Förälder
+                        <select
+                          id="blank-parent"
+                          value={blankParent}
+                          onChange={(event) => setBlankParent(event.target.value)}
+                        >
+                          <option value="">Ingen</option>
+                          {parents.map((page) => (
+                            <option key={page.slug} value={page.slug}>
+                              {pageTitle(page)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  ) : null}
+
+                  <BlockCatalog onAdd={addBlock} />
+                </section>
+
                 <PageMiniature
-                  url={
-                    blankMode
-                      ? blankSlug
-                        ? `${SITE_HOST}/${blankSlug}`
-                        : SITE_HOST
-                      : componentPage
-                        ? `${SITE_HOST}/${componentPage.slug}`
-                        : SITE_HOST
-                  }
+                  url={templateDraftUrl}
                   page={
                     blankMode
                       ? {
                           slug: blankSlug || "ny-mall",
-                          title: blankTitle.trim() || "Ny sidmall",
+                          title: templateDraftTitle,
                           parentSlug: blankParent || undefined,
                           published: false,
                           links: [],

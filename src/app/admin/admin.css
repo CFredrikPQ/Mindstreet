@@ -205,7 +205,32 @@
 }
 
 .admin-pages-layout.is-components {
-  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.9fr);
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1.2fr) minmax(260px, 0.9fr);
+}
+
+.admin-pages-layout.is-components > section:first-child .admin-on-page {
+  margin-top: 0;
+}
+
+.admin-pages-layout.is-components .admin-on-page .admin-block-head {
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.admin-on-page .admin-icon-button {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+  color: rgba(36, 36, 36, 0.72);
+}
+
+.admin-on-page .admin-icon-button:hover {
+  color: #b42318;
+  border-color: #b42318;
+}
+
+.admin-pages-layout.is-components .admin-pick {
+  margin-bottom: 16px;
 }
 
 .admin-pages-layout > section {
@@ -1499,7 +1524,7 @@
   }
 
   .admin-pages-layout.is-components {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
   }
 
   .admin-pages-layout > .admin-miniature {
