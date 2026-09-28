@@ -3,6 +3,7 @@ import { footer } from "@/content/home";
 export function SiteFooter() {
   return (
     <footer className="site-footer" id="kontakt">
+      <img className="footer-shape" src="/icons/footer-shape.svg" alt="" />
       <img src="/icons/logo-footer.svg" width={165} height={32} alt="Mindstreet" />
       <address>
         {footer.address.map((line) => (
