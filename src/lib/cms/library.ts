@@ -64,6 +64,11 @@ export const library: {
     description: "Rubrik och stycke",
   },
   {
+    type: "textColumn",
+    label: "Textspalt",
+    description: "Rubriker och stycken",
+  },
+  {
     type: "imageText",
     label: "Bild och text",
     description: "Ett foto, överrad och knapp",
@@ -138,6 +143,10 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     heading: "Lorem ipsum dolor sit amet",
     body: loremBody,
     theme: "white",
+  },
+  textColumn: {
+    heading: "",
+    body: "",
   },
   split: {
     heading: "Lorem ipsum dolor",
@@ -236,6 +245,30 @@ export function createExpertiseItems(): CmsCard[] {
   return expertiseCardHeadings.map((heading) => createCard(heading));
 }
 
+const textColumnStarters: { heading: string; body: string }[] = [
+  {
+    heading: "Större förändringar inom AML?",
+    body: "AMLR-krav, tillsynsärenden eller stora förändringsprojekt – våra konsulter hjälper er oavsett vilket. De kliver in både strategiskt och operativt, omedelbart eller med längre framförhållning. Behövs det sätter vi ihop ett helt projektteam: erfarna projektledare som driver och samordnar arbetet, och specialister som tar fram, kvalitetssäkrar och uppdaterar processer, rutiner, riskmodeller och styrdokument. Vi kan också bemanna kompletta team inom KYC/EDD och transaktionsmonitorering. När utmaningarna hopar sig och det oförutsedda inträffar kan vi avlasta er och ge er exakt rätt kompetens i rätt tid.",
+  },
+  {
+    heading: "Behöver ni hjälp med modellvalideringar?",
+    body: "Vårt AML-team validerar modeller för transaktionsmonitorering, kundriskklassificering, screening och mer specialiserade ändamål, för både privat- och företagskunder, i och utanför Sverige.\n\nVi arbetar efter en beprövad, strukturerad och transparent valideringsmetod. Resultatet blir modeller som inte bara uppfyller de regulatoriska kraven, utan som också skapar värde och större effektivitet. Ni får alltid en slutrapport med resultat och tydliga rekommendationer som är lätta att följa.",
+  },
+];
+
+export function createTextColumnSection(heading = "", body = ""): CmsCard {
+  return {
+    id: crypto.randomUUID(),
+    heading,
+    body,
+    href: "",
+  };
+}
+
+export function createTextColumnItems(): CmsCard[] {
+  return textColumnStarters.map((item) => createTextColumnSection(item.heading, item.body));
+}
+
 const offeringAdvice =
   "Ibland behöver man ett bollplank, ett annat perspektiv och en djupare kompetens i ett ämne. Mindstreet hjälper dig med seniora rådgivare till ledningsgrupper, specifika projekt eller inför större beslut.";
 
@@ -323,6 +356,7 @@ export function createBlock(type: BlockType): CmsBlock {
     ...(type === "offering" ? { items: createOfferingItems() } : {}),
     ...(type === "news" ? { items: createNewsItems() } : {}),
     ...(type === "newsTwelve" ? { items: createNewsItems(12) } : {}),
+    ...(type === "textColumn" ? { items: createTextColumnItems() } : {}),
   };
 }
 
@@ -341,7 +375,12 @@ export function cloneTemplateBlocks(blocks: CmsBlock[]): CmsBlock[] {
       next.quote = "";
       if (block.quoteAfter !== undefined) next.quoteAfter = block.quoteAfter;
     }
-    if (block.type === "expertise" || block.type === "offering" || isNewsBlock(block.type)) {
+    if (
+      block.type === "expertise" ||
+      block.type === "offering" ||
+      block.type === "textColumn" ||
+      isNewsBlock(block.type)
+    ) {
       next.items = (block.items ?? []).map((item) => ({
         id: crypto.randomUUID(),
         heading: "",
@@ -457,7 +496,7 @@ export function fieldsFor(type: BlockType): BlockFields {
     return { ...none, heading: "Rubrik", body: "Text", theme: true };
   }
 
-  if (type === "pageHeader") {
+  if (type === "pageHeader" || type === "textColumn") {
     return { ...none, heading: null, body: null };
   }
 

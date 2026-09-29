@@ -1,6 +1,7 @@
 export type BlockType =
   | "hero"
   | "text"
+  | "textColumn"
   | "split"
   | "banner"
   | "imageText"

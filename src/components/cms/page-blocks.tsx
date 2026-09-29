@@ -109,6 +109,25 @@ function BlockView({
     );
   }
 
+  if (block.type === "textColumn") {
+    return (
+      <section className="cms-text-column">
+        {(block.items ?? []).map((item) => {
+          const paragraphs = articleParagraphs(item.body);
+          if (!item.heading.trim() && paragraphs.length === 0) return null;
+          return (
+            <div key={item.id} className="cms-text-column-section">
+              {item.heading.trim() ? <h2>{item.heading}</h2> : null}
+              {paragraphs.map((paragraph, index) => (
+                <p key={index}>{paragraph}</p>
+              ))}
+            </div>
+          );
+        })}
+      </section>
+    );
+  }
+
   if (block.type === "split") {
     return (
       <section className="about">

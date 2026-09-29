@@ -1,3 +1,43 @@
+.cms-text-column {
+  max-width: calc(834px + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 72px var(--gutter) 88px;
+  color: #000;
+  font-family: var(--font-lato), "Lato", sans-serif;
+  font-style: normal;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 35px;
+}
+
+.cms-text-column-section + .cms-text-column-section {
+  margin-top: 56px;
+}
+
+.cms-text-column h2 {
+  margin: 0 0 18px;
+  color: #000;
+  font-family: inherit;
+  font-size: 30px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 35px;
+}
+
+.cms-text-column p {
+  margin: 0 0 28px;
+  color: #000;
+  font-family: inherit;
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 35px;
+}
+
+.cms-text-column p:last-child {
+  margin-bottom: 0;
+}
+
 .cms-hero h1 {
   max-width: 14ch;
 }

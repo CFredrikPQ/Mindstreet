@@ -15,6 +15,7 @@ import {
   createCard,
   createNewsItem,
   createOfferingRow,
+  createTextColumnSection,
   fieldsFor,
   isNewsBlock,
   library,
@@ -680,6 +681,12 @@ export default function AdminPage() {
                                     onChange={(items) => updateBlock(block.id, { items })}
                                   />
                                 ) : null}
+                                {block.type === "textColumn" ? (
+                                  <TextColumnSections
+                                    items={block.items ?? []}
+                                    onChange={(items) => updateBlock(block.id, { items })}
+                                  />
+                                ) : null}
                               </li>
                             ))}
                         </ol>
@@ -892,6 +899,12 @@ export default function AdminPage() {
                                     <NewsCards
                                       items={block.items ?? []}
                                       pages={pages}
+                                      onChange={(items) => updateDraftBlock(block.id, { items })}
+                                    />
+                                  ) : null}
+                                  {block.type === "textColumn" ? (
+                                    <TextColumnSections
+                                      items={block.items ?? []}
                                       onChange={(items) => updateDraftBlock(block.id, { items })}
                                     />
                                   ) : null}
@@ -1758,6 +1771,57 @@ function QuotePlacement({
         ))}
       </select>
     </label>
+  );
+}
+
+function TextColumnSections({
+  items,
+  onChange,
+}: {
+  items: CmsCard[];
+  onChange: (items: CmsCard[]) => void;
+}) {
+  function patch(id: string, next: Partial<CmsCard>) {
+    onChange(items.map((item) => (item.id === id ? { ...item, ...next } : item)));
+  }
+
+  return (
+    <fieldset className="admin-cards">
+      <legend>Avsnitt</legend>
+      <ol>
+        {items.map((item, index) => (
+          <li key={item.id}>
+            <div className="admin-block-head">
+              <strong>Avsnitt {index + 1}</strong>
+              <button
+                type="button"
+                onClick={() => onChange(items.filter((row) => row.id !== item.id))}
+              >
+                Ta bort
+              </button>
+            </div>
+            <label>
+              Rubrik
+              <input
+                value={item.heading}
+                onChange={(event) => patch(item.id, { heading: event.target.value })}
+              />
+            </label>
+            <label>
+              Text
+              <textarea
+                rows={6}
+                value={item.body}
+                onChange={(event) => patch(item.id, { body: event.target.value })}
+              />
+            </label>
+          </li>
+        ))}
+      </ol>
+      <button type="button" onClick={() => onChange([...items, createTextColumnSection()])}>
+        Lägg till avsnitt
+      </button>
+    </fieldset>
   );
 }
 
