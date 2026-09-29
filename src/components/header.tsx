@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { menuItems } from "@/content/home";
 
-export function Header() {
+export function Header({ variant = "overlay" }: { variant?: "overlay" | "bar" }) {
   const [open, setOpen] = useState(false);
+  const bar = variant === "bar";
 
   useEffect(() => {
     if (!open) return;
@@ -23,9 +24,14 @@ export function Header() {
   }, [open]);
 
   return (
-    <header className="site-header">
-      <a href="#top" className="logo-link">
-        <img src="/icons/logo.svg" width={239} height={46} alt="Mindstreet" />
+    <header className={bar ? "site-header is-bar" : "site-header"}>
+      <a href={bar ? "/" : "#top"} className="logo-link">
+        <img
+          src={bar ? "/icons/logo-gray.svg" : "/icons/logo.svg"}
+          width={239}
+          height={46}
+          alt="Mindstreet"
+        />
       </a>
       <button
         type="button"
@@ -34,7 +40,12 @@ export function Header() {
         aria-expanded={open}
         onClick={() => setOpen(true)}
       >
-        <img src="/icons/menu.svg" width={37.41} height={32} alt="" />
+        <img
+          src={bar ? "/icons/menu-gray.svg" : "/icons/menu.svg"}
+          width={37.41}
+          height={32}
+          alt=""
+        />
       </button>
 
       {open ? (

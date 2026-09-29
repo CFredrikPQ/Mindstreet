@@ -12,7 +12,8 @@ export type BlockType =
   | "expertise"
   | "offering"
   | "news"
-  | "statement";
+  | "statement"
+  | "pageHeader";
 
 export type ImageSide = "left" | "right";
 export type BlockAlign = "left" | "center" | "right";

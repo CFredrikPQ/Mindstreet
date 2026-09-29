@@ -9,11 +9,12 @@ import "./page-blocks.css";
 
 export function PageBlocks({ page, preview = false }: { page: CmsPage; preview?: boolean }) {
   const firstIsHero = page.blocks[0]?.type === "hero";
+  const hasPageHeader = page.blocks.some((block) => block.type === "pageHeader");
   const parentHref = page.parentSlug ? `/${page.parentSlug}` : "/";
 
   return (
     <div id="top">
-      {firstIsHero ? null : (
+      {firstIsHero || hasPageHeader ? null : (
         <header className="cms-topbar">
           <a href="/" className="logo-link">
             <img src="/icons/logo.svg" width={239} height={46} alt="Mindstreet" />
@@ -56,6 +57,10 @@ function BlockView({
   preview: boolean;
   parentHref: string;
 }) {
+  if (block.type === "pageHeader") {
+    return <Header variant="bar" />;
+  }
+
   if (block.type === "hero") {
     return (
       <section className="hero cms-hero">

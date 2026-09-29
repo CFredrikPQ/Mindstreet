@@ -44,6 +44,11 @@ export const library: {
   description: string;
 }[] = [
   {
+    type: "pageHeader",
+    label: "Header",
+    description: "Logga och meny",
+  },
+  {
     type: "hero",
     label: "Hero",
     description: "Helbild med rubrik",
@@ -116,6 +121,10 @@ export const library: {
 ];
 
 const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
+  pageHeader: {
+    heading: "",
+    body: "",
+  },
   hero: {
     heading: "Lorem ipsum",
     body: loremBody,
@@ -429,6 +438,10 @@ export function fieldsFor(type: BlockType): BlockFields {
 
   if (type === "lead" || type === "text") {
     return { ...none, heading: "Rubrik", body: "Text", theme: true };
+  }
+
+  if (type === "pageHeader") {
+    return { ...none, heading: null, body: null };
   }
 
   if (type === "article") {
