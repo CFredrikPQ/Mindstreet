@@ -435,6 +435,55 @@ export default function AdminPage() {
     );
   }
 
+  function updateNewsItems(block: CmsBlock, items: CmsCard[]) {
+    if (!selected) return;
+    const previous = block.items ?? [];
+    const previousIds = new Set(previous.map((item) => item.id));
+    const added = items.filter((item) => !previousIds.has(item.id));
+    const publishedById = new Map<string, boolean | undefined>();
+    for (const item of items) {
+      const prior = previous.find((row) => row.id === item.id);
+      if (prior && prior.published !== item.published) {
+        publishedById.set(item.id, item.published);
+      }
+    }
+
+    persist((current) =>
+      current.map((page) => {
+        let pageChanged = false;
+        const blocks = page.blocks.map((other) => {
+          if (other.id === block.id) {
+            pageChanged = true;
+            return { ...other, items };
+          }
+          if (!isNewsBlock(other.type)) return other;
+
+          let nextItems = other.items ?? [];
+          let changed = false;
+          if (other.type !== block.type && added.length > 0) {
+            const missing = added.filter((item) => !nextItems.some((row) => row.id === item.id));
+            if (missing.length > 0) {
+              nextItems = [...missing, ...nextItems];
+              changed = true;
+            }
+          }
+          if (publishedById.size > 0 && nextItems.some((item) => publishedById.has(item.id))) {
+            nextItems = nextItems.map((item) =>
+              publishedById.has(item.id)
+                ? { ...item, published: publishedById.get(item.id) }
+                : item,
+            );
+            changed = true;
+          }
+          if (!changed) return other;
+          pageChanged = true;
+          return { ...other, items: nextItems };
+        });
+        return pageChanged ? { ...page, blocks } : page;
+      }),
+    );
+  }
+
   function applyBlockOrder(blocks: CmsBlock[], from: number, to: number) {
     if (from === to || from < 0 || to < 0 || from >= blocks.length || to > blocks.length) return blocks;
     const next = [...blocks];
@@ -678,7 +727,7 @@ export default function AdminPage() {
                                   <NewsCards
                                     items={block.items ?? []}
                                     pages={pages}
-                                    onChange={(items) => updateBlock(block.id, { items })}
+                                    onChange={(items) => updateNewsItems(block, items)}
                                   />
                                 ) : null}
                                 {block.type === "textColumn" ? (
