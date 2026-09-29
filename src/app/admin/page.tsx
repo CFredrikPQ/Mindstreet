@@ -440,11 +440,18 @@ export default function AdminPage() {
     const previous = block.items ?? [];
     const previousIds = new Set(previous.map((item) => item.id));
     const added = items.filter((item) => !previousIds.has(item.id));
-    const publishedById = new Map<string, boolean | undefined>();
+    const changedById = new Map<string, CmsCard>();
     for (const item of items) {
       const prior = previous.find((row) => row.id === item.id);
-      if (prior && prior.published !== item.published) {
-        publishedById.set(item.id, item.published);
+      if (
+        prior &&
+        (prior.heading !== item.heading ||
+          prior.image !== item.image ||
+          prior.publishedAt !== item.publishedAt ||
+          prior.href !== item.href ||
+          prior.published !== item.published)
+      ) {
+        changedById.set(item.id, item);
       }
     }
 
@@ -467,12 +474,20 @@ export default function AdminPage() {
               changed = true;
             }
           }
-          if (publishedById.size > 0 && nextItems.some((item) => publishedById.has(item.id))) {
-            nextItems = nextItems.map((item) =>
-              publishedById.has(item.id)
-                ? { ...item, published: publishedById.get(item.id) }
-                : item,
-            );
+          if (changedById.size > 0 && nextItems.some((item) => changedById.has(item.id))) {
+            nextItems = nextItems.map((item) => {
+              const next = changedById.get(item.id);
+              if (!next) return item;
+              if (other.type === block.type) return { ...item, published: next.published };
+              return {
+                ...item,
+                heading: next.heading,
+                image: next.image,
+                publishedAt: next.publishedAt,
+                href: next.href,
+                published: next.published,
+              };
+            });
             changed = true;
           }
           if (!changed) return other;
