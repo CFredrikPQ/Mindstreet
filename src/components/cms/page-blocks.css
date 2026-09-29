@@ -319,6 +319,20 @@
   line-height: 1.2;
 }
 
+.cms-article h2:has(+ .cms-article-date) {
+  margin-bottom: 12px;
+}
+
+.cms-article-date {
+  display: block;
+  margin: 0 0 28px;
+  color: inherit;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.7;
+}
+
 .cms-article .cms-media-photo {
   height: auto;
   max-height: 420px;

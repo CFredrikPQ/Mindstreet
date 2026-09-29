@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { applyInline } from "@/lib/cms/inline";
+import { newsDateForSlug } from "@/lib/cms/news-date";
 import { LockedFooterNote } from "@/components/cms/locked-footer";
 import { PageBlocks } from "@/components/cms/page-blocks";
 import {
@@ -704,7 +705,11 @@ export default function AdminPage() {
                 )}
 
                 {selected ? (
-                  <PageMiniature url={`${SITE_HOST}/${selected.slug}`} page={selected} />
+                  <PageMiniature
+                    url={`${SITE_HOST}/${selected.slug}`}
+                    page={selected}
+                    publishedAt={newsDateForSlug(selected.slug, pages)}
+                  />
                 ) : null}
               </div>
               </div>
@@ -903,6 +908,7 @@ export default function AdminPage() {
 
                   <PageMiniature
                     url={previewSlug ? `${SITE_HOST}/${previewSlug}` : SITE_HOST}
+                    publishedAt={newsDateForSlug(previewSlug, pages)}
                     page={{
                       slug: previewSlug || "ny-sida",
                       title: titleInput.trim() || "Ny sida",
@@ -1097,6 +1103,10 @@ export default function AdminPage() {
 
                 <PageMiniature
                   url={templateDraftUrl}
+                  publishedAt={newsDateForSlug(
+                    blankMode ? blankSlug : (componentPage?.slug ?? ""),
+                    pages,
+                  )}
                   page={
                     blankMode
                       ? {
@@ -1561,11 +1571,13 @@ function PageMiniature({
   url,
   summary,
   children,
+  publishedAt = "",
 }: {
   page?: CmsPage;
   url: string;
   summary?: string;
   children?: ReactNode;
+  publishedAt?: string;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const count = page?.blocks.length ?? 0;
@@ -1624,7 +1636,7 @@ function PageMiniature({
             aria-hidden="true"
             style={{ width: PREVIEW_WIDTH, zoom: scale }}
           >
-            {children ?? (page ? <PageBlocks page={page} preview /> : null)}
+            {children ?? (page ? <PageBlocks page={page} preview publishedAt={publishedAt} /> : null)}
           </div>
           {showHint ? (
             <p className="admin-miniature-hint">

@@ -4,10 +4,19 @@ import { Header } from "@/components/header";
 import { SiteFooter } from "@/components/site-footer";
 import { renderInline } from "@/lib/cms/inline";
 import { articleParagraphs, quoteAfterIndex, resolveTheme } from "@/lib/cms/library";
+import { formatNewsDate } from "@/lib/cms/news-date";
 import type { CmsBlock, CmsPage } from "@/lib/cms/types";
 import "./page-blocks.css";
 
-export function PageBlocks({ page, preview = false }: { page: CmsPage; preview?: boolean }) {
+export function PageBlocks({
+  page,
+  preview = false,
+  publishedAt = "",
+}: {
+  page: CmsPage;
+  preview?: boolean;
+  publishedAt?: string;
+}) {
   const firstIsHero = page.blocks[0]?.type === "hero";
   const hasPageHeader = page.blocks.some((block) => block.type === "pageHeader");
   const parentHref = page.parentSlug ? `/${page.parentSlug}` : "/";
@@ -28,6 +37,7 @@ export function PageBlocks({ page, preview = false }: { page: CmsPage; preview?:
           withHeader={firstIsHero && index === 0}
           preview={preview}
           parentHref={parentHref}
+          publishedAt={publishedAt}
         />
       ))}
       {page.links.length > 0 ? (
@@ -51,11 +61,13 @@ function BlockView({
   withHeader,
   preview,
   parentHref,
+  publishedAt,
 }: {
   block: CmsBlock;
   withHeader: boolean;
   preview: boolean;
   parentHref: string;
+  publishedAt: string;
 }) {
   if (block.type === "pageHeader") {
     return <Header variant="bar" />;
@@ -207,6 +219,7 @@ function BlockView({
     const paragraphs = articleParagraphs(block.body);
     const quote = block.quote?.trim() ?? "";
     const after = quote ? quoteAfterIndex(block.quoteAfter, paragraphs.length) : -1;
+    const dateLabel = formatNewsDate(publishedAt);
     return (
       <ThemedSurface block={block}>
         <a className="cms-article-back" href={parentHref}>
@@ -215,6 +228,11 @@ function BlockView({
         </a>
         <article className="cms-article">
           {block.heading ? <h2>{block.heading}</h2> : null}
+          {dateLabel ? (
+            <time className="cms-article-date" dateTime={publishedAt}>
+              {dateLabel}
+            </time>
+          ) : null}
           <ModulePhoto src={block.image} />
           <div className="cms-article-copy">
             {after === -1 && quote ? <blockquote>{renderInline(quote)}</blockquote> : null}

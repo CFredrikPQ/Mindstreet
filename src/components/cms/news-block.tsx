@@ -1,34 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { formatNewsDate } from "@/lib/cms/news-date";
 import type { CmsCard } from "@/lib/cms/types";
 
 const PAGE_SIZE = 4;
-
-const months = [
-  "januari",
-  "februari",
-  "mars",
-  "april",
-  "maj",
-  "juni",
-  "juli",
-  "augusti",
-  "september",
-  "oktober",
-  "november",
-  "december",
-];
-
-function formatNewsDate(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  if (!match) return "";
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
-  return `${String(day).padStart(2, "0")} ${months[month - 1]} ${year}`;
-}
 
 export function NewsBlock({
   heading,
