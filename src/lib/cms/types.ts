@@ -47,6 +47,7 @@ export type CmsBlock = {
   imageSide?: ImageSide;
   align?: BlockAlign;
   theme?: BlockTheme;
+  parentSlug?: string;
 };
 
 export type CmsLink = {

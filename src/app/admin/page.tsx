@@ -656,6 +656,8 @@ export default function AdminPage() {
                                   block={block}
                                   onChange={(patch) => updateBlock(block.id, patch)}
                                   onImage={(src, field) => updateBlock(block.id, { [field]: src })}
+                                  parents={rootPages(pages).filter((page) => page.slug !== selected.slug)}
+                                  pageParentSlug={selected.parentSlug ?? ""}
                                 />
                                 {block.type === "expertise" ? (
                                   <ExpertiseCards
@@ -1243,10 +1245,14 @@ function BlockFieldsEditor({
   block,
   onChange,
   onImage,
+  parents,
+  pageParentSlug = "",
 }: {
   block: CmsBlock;
   onChange: (patch: Partial<CmsBlock>) => void;
   onImage: (src: string, field: "image" | "image2") => void;
+  parents?: CmsPage[];
+  pageParentSlug?: string;
 }) {
   const fields = fieldsFor(block.type);
   const quoteFields =
@@ -1268,6 +1274,22 @@ function BlockFieldsEditor({
 
   return (
     <>
+      {block.type === "article" && parents ? (
+        <label>
+          Förälder
+          <select
+            value={block.parentSlug !== undefined ? block.parentSlug : pageParentSlug}
+            onChange={(event) => onChange({ parentSlug: event.target.value })}
+          >
+            <option value="">Ingen</option>
+            {parents.map((page) => (
+              <option key={page.slug} value={page.slug}>
+                {pageTitle(page)}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {fields.theme ? (
         <ColorSwatch value={resolveTheme(block)} onChange={(theme) => onChange({ theme })} />
       ) : null}

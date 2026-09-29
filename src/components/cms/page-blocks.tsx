@@ -56,6 +56,11 @@ export function PageBlocks({
   );
 }
 
+function articleBackHref(parentSlug: string | undefined, pageParentHref: string): string {
+  if (parentSlug === undefined) return pageParentHref;
+  return parentSlug ? `/${parentSlug}` : "/";
+}
+
 function BlockView({
   block,
   withHeader,
@@ -222,7 +227,7 @@ function BlockView({
     const dateLabel = formatNewsDate(publishedAt);
     return (
       <ThemedSurface block={block}>
-        <a className="cms-article-back" href={parentHref}>
+        <a className="cms-article-back" href={articleBackHref(block.parentSlug, parentHref)}>
           <ArticleBackIcon />
           Tillbaka
         </a>
