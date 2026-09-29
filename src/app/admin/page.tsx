@@ -16,6 +16,7 @@ import {
   createNewsItem,
   createOfferingRow,
   fieldsFor,
+  isNewsBlock,
   library,
   quoteAfterIndex,
   resolveTheme,
@@ -644,7 +645,7 @@ export default function AdminPage() {
                                     >
                                       Ner
                                     </button>
-                                    {block.type === "news" ? null : (
+                                    {isNewsBlock(block.type) ? null : (
                                       <button type="button" onClick={() => removeBlock(block.id)}>
                                         Ta bort
                                       </button>
@@ -670,7 +671,7 @@ export default function AdminPage() {
                                     onChange={(items) => updateBlock(block.id, { items })}
                                   />
                                 ) : null}
-                                {block.type === "news" ? (
+                                {isNewsBlock(block.type) ? (
                                   <NewsCards
                                     items={block.items ?? []}
                                     pages={pages}
@@ -885,7 +886,7 @@ export default function AdminPage() {
                                       onChange={(items) => updateDraftBlock(block.id, { items })}
                                     />
                                   ) : null}
-                                  {block.type === "news" ? (
+                                  {isNewsBlock(block.type) ? (
                                     <NewsCards
                                       items={block.items ?? []}
                                       pages={pages}

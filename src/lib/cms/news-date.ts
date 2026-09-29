@@ -35,7 +35,7 @@ export function newsDateForSlug(slug: string, pages: CmsPage[]): string {
 
   for (const page of pages) {
     for (const block of page.blocks) {
-      if (block.type !== "news") continue;
+      if (block.type !== "news" && block.type !== "newsTwelve") continue;
       for (const item of block.items ?? []) {
         const publishedAt = item.publishedAt?.trim() ?? "";
         if (publishedAt && pagePath(item.href) === target) return publishedAt;

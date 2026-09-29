@@ -12,6 +12,7 @@ export type BlockType =
   | "expertise"
   | "offering"
   | "news"
+  | "newsTwelve"
   | "statement"
   | "pageHeader";
 

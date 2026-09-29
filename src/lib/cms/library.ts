@@ -114,6 +114,11 @@ export const library: {
     description: "Bild och rubrik, två och två",
   },
   {
+    type: "newsTwelve",
+    label: "Nyheter, 12",
+    description: "Bild och rubrik, tolv i taget",
+  },
+  {
     type: "statement",
     label: "Text och knapp",
     description: "Text med valfri knapp",
@@ -200,6 +205,10 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     heading: "Mindblowing news",
     body: "",
   },
+  newsTwelve: {
+    heading: "Mindblowing news",
+    body: "",
+  },
   statement: {
     heading: "",
     body: "Tia nonsenis ex eum volenim dit aut mil estisit verupiet aut quis dus quunt eum fugiati duciiss imillutatur. Itatur aut eaquam quidendio ommod eseque sam faccatum et oditiae volorum",
@@ -280,8 +289,15 @@ export function createNewsItem(heading = "Ny nyhet", image = ""): CmsCard {
   };
 }
 
-export function createNewsItems(): CmsCard[] {
-  return newsStarters.map((item) => createNewsItem(item.heading, item.image));
+export function createNewsItems(count = newsStarters.length): CmsCard[] {
+  return Array.from({ length: count }, (_, index) => {
+    const starter = newsStarters[index % newsStarters.length];
+    return createNewsItem(starter.heading, starter.image);
+  });
+}
+
+export function isNewsBlock(type: BlockType): boolean {
+  return type === "news" || type === "newsTwelve";
 }
 
 export function articleParagraphs(body: string): string[] {
@@ -306,6 +322,7 @@ export function createBlock(type: BlockType): CmsBlock {
     ...(type === "expertise" ? { items: createExpertiseItems() } : {}),
     ...(type === "offering" ? { items: createOfferingItems() } : {}),
     ...(type === "news" ? { items: createNewsItems() } : {}),
+    ...(type === "newsTwelve" ? { items: createNewsItems(12) } : {}),
   };
 }
 
@@ -324,13 +341,13 @@ export function cloneTemplateBlocks(blocks: CmsBlock[]): CmsBlock[] {
       next.quote = "";
       if (block.quoteAfter !== undefined) next.quoteAfter = block.quoteAfter;
     }
-    if (block.type === "expertise" || block.type === "offering" || block.type === "news") {
+    if (block.type === "expertise" || block.type === "offering" || isNewsBlock(block.type)) {
       next.items = (block.items ?? []).map((item) => ({
         id: crypto.randomUUID(),
         heading: "",
         body: "",
-        href: block.type === "news" ? item.href : "",
-        ...(block.type === "news"
+        href: isNewsBlock(block.type) ? item.href : "",
+        ...(isNewsBlock(block.type)
           ? { image: item.image ?? "", publishedAt: item.publishedAt ?? "", published: false }
           : {}),
         ...(block.type === "offering" || item.buttonLabel !== undefined
@@ -428,7 +445,7 @@ export function fieldsFor(type: BlockType): BlockFields {
     return { ...none, heading: "Rubrik", body: "Liten rad", image: true, button: true };
   }
 
-  if (type === "expertise" || type === "offering" || type === "news") {
+  if (type === "expertise" || type === "offering" || isNewsBlock(type)) {
     return { ...none, heading: "Rubrik", body: null };
   }
 

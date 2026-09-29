@@ -279,8 +279,15 @@ function BlockView({
     return <OfferingBlock heading={block.heading} items={block.items ?? []} />;
   }
 
-  if (block.type === "news") {
-    return <NewsBlock heading={block.heading} items={block.items ?? []} preview={preview} />;
+  if (block.type === "news" || block.type === "newsTwelve") {
+    return (
+      <NewsBlock
+        heading={block.heading}
+        items={block.items ?? []}
+        preview={preview}
+        pageSize={block.type === "newsTwelve" ? 12 : 4}
+      />
+    );
   }
 
   if (block.type === "expertise") {

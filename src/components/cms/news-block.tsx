@@ -4,23 +4,23 @@ import { useState } from "react";
 import { formatNewsDate } from "@/lib/cms/news-date";
 import type { CmsCard } from "@/lib/cms/types";
 
-const PAGE_SIZE = 4;
-
 export function NewsBlock({
   heading,
   items,
   preview = false,
+  pageSize = 4,
 }: {
   heading: string;
   items: CmsCard[];
   preview?: boolean;
+  pageSize?: number;
 }) {
   const shown = preview ? items : items.filter((item) => item.published !== false);
   const [page, setPage] = useState(0);
-  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(shown.length / pageSize));
   const safePage = Math.min(page, pageCount - 1);
-  const visible = shown.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-  const showPager = shown.length >= 5;
+  const visible = shown.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const showPager = shown.length > pageSize;
 
   return (
     <section className="news">
