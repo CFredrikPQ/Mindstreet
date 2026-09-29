@@ -1,8 +1,25 @@
 "use client";
 
-import { FormEvent, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  cloneElement,
+  FormEvent,
+  isValidElement,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { applyInline } from "@/lib/cms/inline";
+import {
+  findCompletenessIssue,
+  isPageComplete,
+  pageCompletenessIssues,
+  type CompletenessIssue,
+} from "@/lib/cms/completeness";
 import { newsDateForSlug } from "@/lib/cms/news-date";
 import { LockedFooterNote } from "@/components/cms/locked-footer";
 import { PageBlocks } from "@/components/cms/page-blocks";
@@ -28,20 +45,17 @@ import {
   deletePagesToArchive,
   deleteTemplateChoice,
   hiddenTemplateSlugs,
-  loadArchive,
-  loadPages,
-  loadTemplateArchive,
-  loadTemplates,
   orderedPages,
   pagesRemovedWith,
   pageTitle,
+  readLocalSnapshot,
   restoreArchivedPages,
   restoreTemplateChoice,
   rootPages,
   slugifyTitle,
   templateChoices,
   validateSlug,
-  writePages,
+  type CmsState,
   type CmsTemplate,
   type PageArchiveEntry,
   type TemplateArchiveEntry,
@@ -67,6 +81,10 @@ function loadLibraryImages() {
       });
   }
   return libraryImagesRequest;
+}
+
+function forgetLibraryImages() {
+  libraryImagesRequest = null;
 }
 
 type Panel = "pages" | "create" | "components" | "archive";
@@ -128,28 +146,136 @@ export default function AdminPage() {
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<"page" | "template" | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
+  const [phase, setPhase] = useState<"loading" | "locked" | "ready">("loading");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const dragIndexRef = useRef<number | null>(null);
   const dragOriginRef = useRef<number | null>(null);
   const pagesRef = useRef(pages);
+  const archiveRef = useRef(archive);
   const templatesRef = useRef(templates);
   const templateArchiveRef = useRef(templateArchive);
+  const etagRef = useRef<string | null>(null);
+  const saveChain = useRef(Promise.resolve<string | null>(null));
+  const saveTimer = useRef<number | null>(null);
+  const saveWaiters = useRef<Array<(error: string | null) => void>>([]);
   pagesRef.current = pages;
+  archiveRef.current = archive;
   templatesRef.current = templates;
   templateArchiveRef.current = templateArchive;
 
+  function snapshot(): CmsState {
+    return {
+      pages: pagesRef.current,
+      archive: archiveRef.current,
+      templates: templatesRef.current,
+      templateArchive: templateArchiveRef.current,
+    };
+  }
+
+  function applyState(state: CmsState, etag: string | null) {
+    pagesRef.current = state.pages;
+    archiveRef.current = state.archive;
+    templatesRef.current = state.templates;
+    templateArchiveRef.current = state.templateArchive;
+    etagRef.current = etag;
+    setPages(state.pages);
+    setArchive(state.archive);
+    setTemplates(state.templates);
+    setTemplateArchive(state.templateArchive);
+    setSelectedSlug((current) => current ?? orderedPages(state.pages)[0]?.slug ?? null);
+  }
+
+  async function loadCms() {
+    const response = await fetch("/api/cms", { cache: "no-store" });
+    if (response.status === 401) {
+      setPhase("locked");
+      return;
+    }
+    if (!response.ok) {
+      setNotice("Kunde inte läsa sidorna.");
+      setPhase("ready");
+      return;
+    }
+
+    const data = (await response.json()) as {
+      state: CmsState;
+      etag: string | null;
+      empty: boolean;
+    };
+    let state = data.state;
+    let etag = data.etag;
+    const local = readLocalSnapshot();
+
+    if (local) {
+      const pageSlugs = new Set(state.pages.map((page) => page.slug));
+      const archiveIds = new Set(state.archive.map((entry) => entry.id));
+      const templateSlugs = new Set(state.templates.map((template) => template.slug));
+      const templateArchiveIds = new Set(state.templateArchive.map((entry) => entry.id));
+      const merged: CmsState = {
+        pages: [...state.pages, ...local.pages.filter((page) => !pageSlugs.has(page.slug))],
+        archive: [...state.archive, ...local.archive.filter((entry) => !archiveIds.has(entry.id))],
+        templates: [
+          ...state.templates,
+          ...local.templates.filter((template) => !templateSlugs.has(template.slug)),
+        ],
+        templateArchive: [
+          ...state.templateArchive,
+          ...local.templateArchive.filter((entry) => !templateArchiveIds.has(entry.id)),
+        ],
+      };
+      const changed =
+        data.empty ||
+        merged.pages.length !== state.pages.length ||
+        merged.archive.length !== state.archive.length ||
+        merged.templates.length !== state.templates.length ||
+        merged.templateArchive.length !== state.templateArchive.length;
+
+      if (changed) {
+        const saved = await fetch("/api/cms", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ state: data.empty ? local : merged, etag }),
+        });
+        if (saved.ok) {
+          const body = (await saved.json()) as { etag?: string };
+          state = data.empty ? local : merged;
+          etag = body.etag ?? etag;
+        }
+      }
+    }
+
+    applyState(state, etag);
+    setPhase("ready");
+  }
+
   useEffect(() => {
-    const stored = loadPages();
-    setPages(stored);
-    setArchive(loadArchive());
-    setTemplates(loadTemplates());
-    setTemplateArchive(loadTemplateArchive());
-    setSelectedSlug(orderedPages(stored)[0]?.slug ?? null);
+    let cancelled = false;
+    void loadCms().catch(() => {
+      if (!cancelled) {
+        setNotice("Kunde inte läsa sidorna.");
+        setPhase("ready");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // The loader only runs when the admin screen opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selected = pages.find((page) => page.slug === selectedSlug) ?? null;
   const listedPages = orderedPages(pages);
+  const incompleteSlugs = useMemo(() => {
+    const slugs = new Set<string>();
+    for (const page of pages) {
+      if (pageCompletenessIssues(page, pages).length > 0) slugs.add(page.slug);
+    }
+    return slugs;
+  }, [pages]);
+  const selectedIssues = selected ? pageCompletenessIssues(selected, pages) : [];
   const templateOptions = templateChoices(pages, templates, hiddenTemplateSlugs(templateArchive));
   const templatePage = templateOptions.find((page) => page.slug === templateSlug) ?? null;
   const pendingDelete =
@@ -163,6 +289,20 @@ export default function AdminPage() {
   const pendingRemoved = deleteSlug ? pagesRemovedWith(deleteSlug, pages) : [];
   const parents = rootPages(pages);
   const previewSlug = composeSlug(parentSlug || undefined, slugifyTitle(titleInput));
+  const createIssues = templatePage
+    ? pageCompletenessIssues(
+        {
+          slug: titleInput.trim() ? previewSlug : "",
+          title: titleInput.trim(),
+          parentSlug: parentSlug || undefined,
+          published,
+          links: [],
+          blocks: draftBlocks,
+        },
+        pages,
+        { requireTitle: true },
+      )
+    : [];
   const blankMode = componentTarget === BLANK_TEMPLATE;
   const componentPage = blankMode
     ? null
@@ -179,16 +319,60 @@ export default function AdminPage() {
       ? `${SITE_HOST}/${componentPage.slug}`
       : SITE_HOST;
 
+  function enqueueSave(): Promise<string | null> {
+    const run = saveChain.current.then(async () => {
+      const response = await fetch("/api/cms", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ state: snapshot(), etag: etagRef.current }),
+      });
+      const data = (await response.json().catch(() => null)) as { etag?: string; error?: string } | null;
+      if (!response.ok) return data?.error ?? "Kunde inte spara.";
+      if (data?.etag) etagRef.current = data.etag;
+      return null;
+    });
+    saveChain.current = run.then(
+      (error) => error,
+      () => "Kunde inte spara.",
+    );
+    return run;
+  }
+
+  function scheduleSave(): Promise<string | null> {
+    return new Promise((resolve) => {
+      saveWaiters.current.push(resolve);
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+      saveTimer.current = window.setTimeout(() => {
+        saveTimer.current = null;
+        const waiters = saveWaiters.current;
+        saveWaiters.current = [];
+        void enqueueSave().then((error) => {
+          if (error) setNotice(error);
+          for (const waiter of waiters) waiter(error);
+        });
+      }, 400);
+    });
+  }
+
+  async function saveNow(): Promise<string | null> {
+    if (saveTimer.current) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    const waiters = saveWaiters.current;
+    saveWaiters.current = [];
+    const error = await enqueueSave();
+    if (error) setNotice(error);
+    else setNotice(null);
+    for (const waiter of waiters) waiter(error);
+    return error;
+  }
+
   function persist(updater: (current: CmsPage[]) => CmsPage[]) {
     const next = updater(pagesRef.current);
-    const error = writePages(next);
-    if (error) {
-      setNotice(error);
-      return false;
-    }
     pagesRef.current = next;
     setPages(next);
-    setNotice(null);
+    void scheduleSave();
     return true;
   }
 
@@ -220,7 +404,7 @@ export default function AdminPage() {
     setNotice(null);
   }
 
-  function createPage(event: FormEvent) {
+  async function createPage(event: FormEvent) {
     event.preventDefault();
     const title = titleInput.trim();
     if (!title) {
@@ -248,7 +432,7 @@ export default function AdminPage() {
       return;
     }
 
-    const page: CmsPage = {
+    const draft: CmsPage = {
       slug,
       title,
       parentSlug: parent,
@@ -256,19 +440,39 @@ export default function AdminPage() {
       links: [],
       blocks: draftBlocks,
     };
-    const saved = persist((pages) => [...pages, page]);
-    if (!saved) return;
+    const complete = isPageComplete(draft, current);
+    const page: CmsPage = {
+      ...draft,
+      published: published && complete,
+    };
+    pagesRef.current = [...current, page];
+    setPages(pagesRef.current);
+    if (await saveNow()) return;
     setSelectedSlug(page.slug);
     setLastSavedSlug(page.slug);
     resetCreateForm();
+    if (!complete) {
+      if (published) {
+        setNotice("Sidan sparades som utkast eftersom fält eller undersideslänkar saknas.");
+      }
+      setPanel("pages");
+    }
   }
 
   function togglePublished(slug: string) {
-    persist((current) =>
-      current.map((page) =>
-        page.slug === slug ? { ...page, published: !page.published } : page,
+    const current = pagesRef.current;
+    const page = current.find((entry) => entry.slug === slug);
+    if (!page) return;
+    if (!page.published && pageCompletenessIssues(page, current).length > 0) {
+      setNotice("Fyll i alla fält och länka undersidorna innan sidan publiceras.");
+      return;
+    }
+    persist((pages) =>
+      pages.map((entry) =>
+        entry.slug === slug ? { ...entry, published: !entry.published } : entry,
       ),
     );
+    setNotice(null);
   }
 
   function openDelete(slug: string) {
@@ -291,32 +495,44 @@ export default function AdminPage() {
     setDeleteInput("");
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteSlug) return;
     const address = `${SITE_HOST}/${deleteSlug}`;
     if (!addressMatches(deleteInput, address)) return;
-    const result = deletePagesToArchive(deleteSlug, pagesRef.current);
+    const result = deletePagesToArchive(
+      deleteSlug,
+      pagesRef.current,
+      archiveRef.current,
+      templatesRef.current,
+    );
     if (result.error || !result.next || !result.archive) {
       setNotice(result.error ?? "Kunde inte ta bort sidan.");
       return;
     }
     pagesRef.current = result.next;
+    archiveRef.current = result.archive;
     setPages(result.next);
     setArchive(result.archive);
     if (result.templates) {
       templatesRef.current = result.templates;
       setTemplates(result.templates);
     }
+    if (await saveNow()) return;
     closeDelete();
     setSelectedSlug(orderedPages(result.next)[0]?.slug ?? null);
     setNotice("Sidan är borttagen och ligger under Borttagna sidor och mallar.");
   }
 
-  function confirmDeleteTemplate() {
+  async function confirmDeleteTemplate() {
     if (!deleteSlug) return;
     const address = `${SITE_HOST}/${deleteSlug}`;
     if (!addressMatches(deleteInput, address)) return;
-    const result = deleteTemplateChoice(deleteSlug, pagesRef.current, templatesRef.current);
+    const result = deleteTemplateChoice(
+      deleteSlug,
+      pagesRef.current,
+      templatesRef.current,
+      templateArchiveRef.current,
+    );
     if (result.error || !result.templates || !result.archive) {
       setNotice(result.error ?? "Kunde inte ta bort mallen.");
       return;
@@ -325,6 +541,7 @@ export default function AdminPage() {
     templateArchiveRef.current = result.archive;
     setTemplates(result.templates);
     setTemplateArchive(result.archive);
+    if (await saveNow()) return;
     if (templateSlug === deleteSlug) {
       setTemplateSlug(null);
       setDraftBlocks([]);
@@ -333,8 +550,8 @@ export default function AdminPage() {
     setNotice("Mallen är borttagen och ligger under Borttagna sidor och mallar.");
   }
 
-  function restoreTemplate(id: string) {
-    const result = restoreTemplateChoice(id, templatesRef.current);
+  async function restoreTemplate(id: string) {
+    const result = restoreTemplateChoice(id, templatesRef.current, templateArchiveRef.current);
     if (!result.templates || !result.archive) {
       setNotice(result.error ?? "Kunde inte återställa mallen.");
       return;
@@ -343,6 +560,7 @@ export default function AdminPage() {
     templateArchiveRef.current = result.archive;
     setTemplates(result.templates);
     setTemplateArchive(result.archive);
+    if (await saveNow()) return;
     const entry = templateArchive.find((item) => item.id === id);
     if (entry) {
       setTemplateSlug(entry.slug);
@@ -352,15 +570,19 @@ export default function AdminPage() {
     setNotice(result.error ?? "Mallen är återställd.");
   }
 
-  function restorePage(id: string) {
-    const result = restoreArchivedPages(id, pagesRef.current);
+  async function restorePage(id: string) {
+    const result = restoreArchivedPages(id, pagesRef.current, archiveRef.current);
     if (!result.next) {
       setNotice(result.error ?? "Kunde inte återställa sidan.");
       return;
     }
     pagesRef.current = result.next;
     setPages(result.next);
-    if (result.archive) setArchive(result.archive);
+    if (result.archive) {
+      archiveRef.current = result.archive;
+      setArchive(result.archive);
+    }
+    if (await saveNow()) return;
     if (result.slug) setSelectedSlug(result.slug);
     setNotice(result.error ?? "Sidan är återställd.");
   }
@@ -383,7 +605,7 @@ export default function AdminPage() {
     );
   }
 
-  function saveBlankTemplate() {
+  async function saveBlankTemplate() {
     const title = blankTitle.trim();
     if (!title) {
       setNotice("Skriv ett sidnamn.");
@@ -409,8 +631,9 @@ export default function AdminPage() {
       links: [],
       blocks: blankBlocks,
     };
-    const saved = persist((pages) => [...pages, page]);
-    if (!saved) return;
+    pagesRef.current = [...current, page];
+    setPages(pagesRef.current);
+    if (await saveNow()) return;
     setSelectedSlug(page.slug);
     setComponentTarget(page.slug);
     setBlankBlocks([]);
@@ -572,6 +795,60 @@ export default function AdminPage() {
     );
   }
 
+  async function login(event: FormEvent) {
+    event.preventDefault();
+    setLoginError(null);
+    const response = await fetch("/api/admin/session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      setLoginError(data?.error ?? "Fel lösenord.");
+      return;
+    }
+    setPassword("");
+    setPhase("loading");
+    await loadCms();
+  }
+
+  async function logout() {
+    await fetch("/api/admin/session", { method: "DELETE" });
+    window.location.href = "/";
+  }
+
+  if (phase !== "ready") {
+    return (
+      <main className="admin-gate">
+        <form onSubmit={login}>
+          <MindstreetMark />
+          <h1>{phase === "loading" ? "Hämtar sidor" : "Logga in"}</h1>
+          {phase === "locked" ? (
+            <>
+              <p>Sidorna är gemensamma. Logga in för att ändra dem.</p>
+              <label>
+                Lösenord
+                <input
+                  type="password"
+                  value={password}
+                  autoComplete="current-password"
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </label>
+              {loginError ? <p className="admin-notice">{loginError}</p> : null}
+              <button className="admin-primary" type="submit">
+                Logga in
+              </button>
+            </>
+          ) : (
+            <p>Hämtar det gemensamma innehållet.</p>
+          )}
+        </form>
+      </main>
+    );
+  }
+
   return (
     <div className="admin">
       <aside className="admin-rail" aria-label="Adminmeny">
@@ -608,9 +885,15 @@ export default function AdminPage() {
           >
             <RailIcon name="archive" />
           </button>
-          <a className="admin-logout" href="/" data-label="Logga ut" aria-label="Logga ut">
+          <button
+            type="button"
+            className="admin-logout"
+            data-label="Logga ut"
+            aria-label="Logga ut"
+            onClick={() => void logout()}
+          >
             <RailIcon name="logout" />
-          </a>
+          </button>
         </div>
       </aside>
 
@@ -636,8 +919,13 @@ export default function AdminPage() {
                         >
                           <span className="admin-page-row">
                             <span className="admin-page-name">{pageTitle(page)}</span>
-                            <span className={page.published ? "admin-status is-live" : "admin-status"}>
-                              {page.published ? "Publicerad" : "Utkast"}
+                            <span className="admin-page-flags">
+                              <span className={page.published ? "admin-status is-live" : "admin-status"}>
+                                {page.published ? "Publicerad" : "Utkast"}
+                              </span>
+                              {incompleteSlugs.has(page.slug) ? (
+                                <span className="admin-status is-incomplete">Ofullständig</span>
+                              ) : null}
                             </span>
                           </span>
                           <small>
@@ -683,6 +971,8 @@ export default function AdminPage() {
                       </div>
                     </div>
 
+                    <CompletenessBanner issues={selectedIssues} published={selected.published} />
+
                     <section className="admin-canvas" aria-label="Sidans block">
                       <h3>Sidan</h3>
                       {selected.blocks.length === 0 ? (
@@ -719,6 +1009,7 @@ export default function AdminPage() {
                                 </div>
                                 <BlockFieldsEditor
                                   block={block}
+                                  issues={selectedIssues}
                                   onChange={(patch) => updateBlock(block.id, patch)}
                                   onImage={(src, field) => updateBlock(block.id, { [field]: src })}
                                   parents={rootPages(pages).filter((page) => page.slug !== selected.slug)}
@@ -726,28 +1017,36 @@ export default function AdminPage() {
                                 />
                                 {block.type === "expertise" ? (
                                   <ExpertiseCards
+                                    blockId={block.id}
                                     items={block.items ?? []}
                                     pages={pages}
+                                    issues={selectedIssues}
                                     onChange={(items) => updateBlock(block.id, { items })}
                                   />
                                 ) : null}
                                 {block.type === "offering" ? (
                                   <OfferingRows
+                                    blockId={block.id}
                                     items={block.items ?? []}
                                     pages={pages}
+                                    issues={selectedIssues}
                                     onChange={(items) => updateBlock(block.id, { items })}
                                   />
                                 ) : null}
                                 {isNewsBlock(block.type) ? (
                                   <NewsCards
+                                    blockId={block.id}
                                     items={block.items ?? []}
                                     pages={pages}
+                                    issues={selectedIssues}
                                     onChange={(items) => updateNewsItems(block, items)}
                                   />
                                 ) : null}
                                 {block.type === "textColumn" ? (
                                   <TextColumnSections
+                                    blockId={block.id}
                                     items={block.items ?? []}
+                                    issues={selectedIssues}
                                     onChange={(items) => updateBlock(block.id, { items })}
                                   />
                                 ) : null}
@@ -897,9 +1196,14 @@ export default function AdminPage() {
                           </div>
                         </div>
 
+                        <CompletenessBanner issues={createIssues} />
+
                         <div className="admin-create-fields">
-                          <label htmlFor="page-title">
-                            Sidnamn
+                          <AdminField
+                            label="Sidnamn"
+                            htmlFor="page-title"
+                            issue={findCompletenessIssue(createIssues, "title")}
+                          >
                             <input
                               id="page-title"
                               value={titleInput}
@@ -907,7 +1211,7 @@ export default function AdminPage() {
                               placeholder="Våra expertområden"
                               autoFocus
                             />
-                          </label>
+                          </AdminField>
                           <p className="admin-derived-url">
                             <span>URL</span>
                             {previewSlug ? `${SITE_HOST}/${previewSlug}` : `${SITE_HOST}/`}
@@ -942,33 +1246,42 @@ export default function AdminPage() {
                                   </div>
                                   <BlockFieldsEditor
                                     block={block}
+                                    issues={createIssues}
                                     onChange={(patch) => updateDraftBlock(block.id, patch)}
                                     onImage={(src, field) => updateDraftBlock(block.id, { [field]: src })}
                                   />
                                   {block.type === "expertise" ? (
                                     <ExpertiseCards
+                                      blockId={block.id}
                                       items={block.items ?? []}
                                       pages={pages}
+                                      issues={createIssues}
                                       onChange={(items) => updateDraftBlock(block.id, { items })}
                                     />
                                   ) : null}
                                   {block.type === "offering" ? (
                                     <OfferingRows
+                                      blockId={block.id}
                                       items={block.items ?? []}
                                       pages={pages}
+                                      issues={createIssues}
                                       onChange={(items) => updateDraftBlock(block.id, { items })}
                                     />
                                   ) : null}
                                   {isNewsBlock(block.type) ? (
                                     <NewsCards
+                                      blockId={block.id}
                                       items={block.items ?? []}
                                       pages={pages}
+                                      issues={createIssues}
                                       onChange={(items) => updateDraftBlock(block.id, { items })}
                                     />
                                   ) : null}
                                   {block.type === "textColumn" ? (
                                     <TextColumnSections
+                                      blockId={block.id}
                                       items={block.items ?? []}
+                                      issues={createIssues}
                                       onChange={(items) => updateDraftBlock(block.id, { items })}
                                     />
                                   ) : null}
@@ -1318,20 +1631,104 @@ function PageHeading({ kicker, title }: { kicker: string; title: string }) {
   );
 }
 
+function CompletenessBanner({
+  issues,
+  published = false,
+}: {
+  issues: CompletenessIssue[];
+  published?: boolean;
+}) {
+  if (issues.length === 0) return null;
+
+  return (
+    <div className="admin-completeness" role="alert">
+      {published ? (
+        <p>
+          Sidan är publicerad men ofullständig. Den kan inte publiceras igen förrän fälten och
+          undersideslänkarna är klara.
+        </p>
+      ) : null}
+      <ul>
+        {issues.map((issue) => (
+          <li key={issue.id}>
+            {issue.fieldMessage ? (
+              <button
+                type="button"
+                onClick={() =>
+                  document.getElementById(issue.id)?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center",
+                  })
+                }
+              >
+                {issue.message}
+              </button>
+            ) : (
+              issue.message
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function AdminField({
+  label,
+  issue,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  issue?: CompletenessIssue;
+  htmlFor?: string;
+  children: ReactElement<{ "aria-invalid"?: boolean; "aria-describedby"?: string }>;
+}) {
+  const errorId = issue ? `${issue.id}-error` : undefined;
+  const control = isValidElement(children)
+    ? cloneElement(children, {
+        "aria-invalid": issue ? true : undefined,
+        "aria-describedby": errorId,
+      })
+    : children;
+
+  return (
+    <label htmlFor={htmlFor} id={issue?.id} className={issue ? "is-invalid" : undefined}>
+      {label}
+      {control}
+      {issue ? (
+        <span className="admin-field-error" id={errorId}>
+          {issue.fieldMessage}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
 function BlockFieldsEditor({
   block,
+  issues = [],
   onChange,
   onImage,
   parents,
   pageParentSlug = "",
 }: {
   block: CmsBlock;
+  issues?: CompletenessIssue[];
   onChange: (patch: Partial<CmsBlock>) => void;
   onImage: (src: string, field: "image" | "image2") => void;
   parents?: CmsPage[];
   pageParentSlug?: string;
 }) {
   const fields = fieldsFor(block.type);
+  const eyebrowIssue = findCompletenessIssue(issues, "eyebrow", block.id);
+  const headingIssue = findCompletenessIssue(issues, "heading", block.id);
+  const bodyIssue = findCompletenessIssue(issues, "body", block.id);
+  const quoteIssue = findCompletenessIssue(issues, "quote", block.id);
+  const buttonIssue = findCompletenessIssue(issues, "buttonLabel", block.id);
+  const hrefIssue = findCompletenessIssue(issues, "buttonHref", block.id);
+  const imageIssue = findCompletenessIssue(issues, "image", block.id);
+  const image2Issue = findCompletenessIssue(issues, "image2", block.id);
   const quoteFields =
     block.quote !== undefined ? (
       <>
@@ -1339,6 +1736,7 @@ function BlockFieldsEditor({
           label="Citat"
           rows={3}
           value={block.quote}
+          issue={quoteIssue}
           onChange={(quote) => onChange({ quote })}
         />
         <QuotePlacement
@@ -1371,30 +1769,30 @@ function BlockFieldsEditor({
         <ColorSwatch value={resolveTheme(block)} onChange={(theme) => onChange({ theme })} />
       ) : null}
       {fields.eyebrow ? (
-        <label>
-          Överrad
+        <AdminField label="Överrad" issue={eyebrowIssue}>
           <input
             value={block.eyebrow ?? ""}
             onChange={(event) => onChange({ eyebrow: event.target.value })}
           />
-        </label>
+        </AdminField>
       ) : null}
       {fields.heading ? (
-        <label>
-          {fields.heading}
-          {block.type === "lead" ? (
+        block.type === "lead" ? (
+          <AdminField label={fields.heading} issue={headingIssue}>
             <textarea
               rows={4}
               value={block.heading}
               onChange={(event) => onChange({ heading: event.target.value })}
             />
-          ) : (
+          </AdminField>
+        ) : (
+          <AdminField label={fields.heading} issue={headingIssue}>
             <input
               value={block.heading}
               onChange={(event) => onChange({ heading: event.target.value })}
             />
-          )}
-        </label>
+          </AdminField>
+        )
       ) : null}
       {fields.body ? (
         block.type === "article" ? (
@@ -1402,11 +1800,11 @@ function BlockFieldsEditor({
             label={fields.body}
             rows={8}
             value={block.body}
+            issue={bodyIssue}
             onChange={(body) => onChange({ body })}
           />
         ) : (
-          <label>
-            {fields.body}
+          <AdminField label={fields.body} issue={bodyIssue}>
             <textarea
               rows={
                 block.type === "banner" || block.type === "highlight"
@@ -1418,7 +1816,7 @@ function BlockFieldsEditor({
               value={block.body}
               onChange={(event) => onChange({ body: event.target.value })}
             />
-          </label>
+          </AdminField>
         )
       ) : null}
       {fields.quote ? (
@@ -1473,40 +1871,36 @@ function BlockFieldsEditor({
           </label>
           {block.buttonLabel !== undefined ? (
             <>
-              <label>
-                Knapp
+              <AdminField label="Knapp" issue={buttonIssue}>
                 <input
                   value={block.buttonLabel}
                   onChange={(event) => onChange({ buttonLabel: event.target.value })}
                 />
-              </label>
-              <label>
-                Länk
+              </AdminField>
+              <AdminField label="Länk" issue={hrefIssue}>
                 <input
                   value={block.buttonHref ?? ""}
                   onChange={(event) => onChange({ buttonHref: event.target.value })}
                 />
-              </label>
+              </AdminField>
             </>
           ) : null}
         </>
       ) : null}
       {fields.button && block.type !== "statement" ? (
         <>
-          <label>
-            Knapp
+          <AdminField label="Knapp" issue={buttonIssue}>
             <input
               value={block.buttonLabel ?? ""}
               onChange={(event) => onChange({ buttonLabel: event.target.value })}
             />
-          </label>
-          <label>
-            Länk
+          </AdminField>
+          <AdminField label="Länk" issue={hrefIssue}>
             <input
               value={block.buttonHref ?? ""}
               onChange={(event) => onChange({ buttonHref: event.target.value })}
             />
-          </label>
+          </AdminField>
         </>
       ) : null}
       {fields.imageSide || fields.align ? (
@@ -1544,6 +1938,7 @@ function BlockFieldsEditor({
           src={block.image}
           emptyLabel="Ingen bild vald."
           chooseLabel={block.image ? "Byt bild" : "Välj bild"}
+          issue={imageIssue}
           onChoose={(src) => onImage(src, "image")}
           onClear={() => onChange({ image: undefined })}
         />
@@ -1553,6 +1948,7 @@ function BlockFieldsEditor({
           src={block.image2}
           emptyLabel="Ingen andra bild vald."
           chooseLabel={block.image2 ? "Byt andra bilden" : "Välj andra bilden"}
+          issue={image2Issue}
           onChoose={(src) => onImage(src, "image2")}
           onClear={() => onChange({ image2: undefined })}
         />
@@ -1753,14 +2149,17 @@ function FormattedText({
   label,
   rows,
   value,
+  issue,
   onChange,
 }: {
   label: string;
   rows: number;
   value: string;
+  issue?: CompletenessIssue;
   onChange: (value: string) => void;
 }) {
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const errorId = issue ? `${issue.id}-error` : undefined;
 
   function format(kind: "bold" | "link") {
     const field = fieldRef.current;
@@ -1780,7 +2179,7 @@ function FormattedText({
   }
 
   return (
-    <div className="admin-format">
+    <div id={issue?.id} className={issue ? "admin-format is-invalid" : "admin-format"}>
       <span>{label}</span>
       <div className="admin-format-tools">
         <button type="button" onClick={() => format("bold")}>
@@ -1794,8 +2193,15 @@ function FormattedText({
         ref={fieldRef}
         rows={rows}
         value={value}
+        aria-invalid={issue ? true : undefined}
+        aria-describedby={errorId}
         onChange={(event) => onChange(event.target.value)}
       />
+      {issue ? (
+        <span className="admin-field-error" id={errorId}>
+          {issue.fieldMessage}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -1839,10 +2245,14 @@ function QuotePlacement({
 }
 
 function TextColumnSections({
+  blockId,
   items,
+  issues = [],
   onChange,
 }: {
+  blockId: string;
   items: CmsCard[];
+  issues?: CompletenessIssue[];
   onChange: (items: CmsCard[]) => void;
 }) {
   function patch(id: string, next: Partial<CmsCard>) {
@@ -1864,21 +2274,25 @@ function TextColumnSections({
                 Ta bort
               </button>
             </div>
-            <label>
-              Rubrik
+            <AdminField
+              label="Rubrik"
+              issue={findCompletenessIssue(issues, "heading", blockId, item.id)}
+            >
               <input
                 value={item.heading}
                 onChange={(event) => patch(item.id, { heading: event.target.value })}
               />
-            </label>
-            <label>
-              Text
+            </AdminField>
+            <AdminField
+              label="Text"
+              issue={findCompletenessIssue(issues, "body", blockId, item.id)}
+            >
               <textarea
                 rows={6}
                 value={item.body}
                 onChange={(event) => patch(item.id, { body: event.target.value })}
               />
-            </label>
+            </AdminField>
           </li>
         ))}
       </ol>
@@ -1890,12 +2304,16 @@ function TextColumnSections({
 }
 
 function ExpertiseCards({
+  blockId,
   items,
   pages,
+  issues = [],
   onChange,
 }: {
+  blockId: string;
   items: CmsCard[];
   pages: CmsPage[];
+  issues?: CompletenessIssue[];
   onChange: (items: CmsCard[]) => void;
 }) {
   function patch(id: string, next: Partial<CmsCard>) {
@@ -1917,23 +2335,29 @@ function ExpertiseCards({
                 Ta bort
               </button>
             </div>
-            <label>
-              Rubrik
+            <AdminField
+              label="Rubrik"
+              issue={findCompletenessIssue(issues, "heading", blockId, item.id)}
+            >
               <input
                 value={item.heading}
                 onChange={(event) => patch(item.id, { heading: event.target.value })}
               />
-            </label>
-            <label>
-              Text
+            </AdminField>
+            <AdminField
+              label="Text"
+              issue={findCompletenessIssue(issues, "body", blockId, item.id)}
+            >
               <textarea
                 rows={4}
                 value={item.body}
                 onChange={(event) => patch(item.id, { body: event.target.value })}
               />
-            </label>
-            <label>
-              Undersida
+            </AdminField>
+            <AdminField
+              label="Undersida"
+              issue={findCompletenessIssue(issues, "href", blockId, item.id)}
+            >
               <select
                 value={item.href}
                 onChange={(event) => patch(item.id, { href: event.target.value })}
@@ -1945,7 +2369,7 @@ function ExpertiseCards({
                   </option>
                 ))}
               </select>
-            </label>
+            </AdminField>
           </li>
         ))}
       </ol>
@@ -1962,12 +2386,16 @@ function newsConfirmText(item: CmsCard, index: number) {
 }
 
 function NewsCards({
+  blockId,
   items,
   pages,
+  issues = [],
   onChange,
 }: {
+  blockId: string;
   items: CmsCard[];
   pages: CmsPage[];
+  issues?: CompletenessIssue[];
   onChange: (items: CmsCard[]) => void;
 }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -2025,26 +2453,33 @@ function NewsCards({
               src={item.image}
               emptyLabel="Ingen bild vald."
               chooseLabel={item.image ? "Byt bild" : "Välj bild"}
+              issue={findCompletenessIssue(issues, "image", blockId, item.id)}
               onChoose={(src) => patch(item.id, { image: src })}
               onClear={() => patch(item.id, { image: "" })}
             />
-            <label>
-              Publicerad
+            <AdminField
+              label="Publicerad"
+              issue={findCompletenessIssue(issues, "publishedAt", blockId, item.id)}
+            >
               <input
                 type="date"
                 value={item.publishedAt ?? ""}
                 onChange={(event) => patch(item.id, { publishedAt: event.target.value })}
               />
-            </label>
-            <label>
-              Rubrik
+            </AdminField>
+            <AdminField
+              label="Rubrik"
+              issue={findCompletenessIssue(issues, "heading", blockId, item.id)}
+            >
               <input
                 value={item.heading}
                 onChange={(event) => patch(item.id, { heading: event.target.value })}
               />
-            </label>
-            <label>
-              Undersida
+            </AdminField>
+            <AdminField
+              label="Undersida"
+              issue={findCompletenessIssue(issues, "href", blockId, item.id)}
+            >
               <select
                 value={item.href}
                 onChange={(event) => patch(item.id, { href: event.target.value })}
@@ -2056,7 +2491,7 @@ function NewsCards({
                   </option>
                 ))}
               </select>
-            </label>
+            </AdminField>
           </li>
         ))}
       </ol>
@@ -2080,12 +2515,16 @@ function NewsCards({
 }
 
 function OfferingRows({
+  blockId,
   items,
   pages,
+  issues = [],
   onChange,
 }: {
+  blockId: string;
   items: CmsCard[];
   pages: CmsPage[];
+  issues?: CompletenessIssue[];
   onChange: (items: CmsCard[]) => void;
 }) {
   function patch(id: string, next: Partial<CmsCard>) {
@@ -2107,30 +2546,38 @@ function OfferingRows({
                 Ta bort
               </button>
             </div>
-            <label>
-              Rubrik
+            <AdminField
+              label="Rubrik"
+              issue={findCompletenessIssue(issues, "heading", blockId, item.id)}
+            >
               <input
                 value={item.heading}
                 onChange={(event) => patch(item.id, { heading: event.target.value })}
               />
-            </label>
-            <label>
-              Text
+            </AdminField>
+            <AdminField
+              label="Text"
+              issue={findCompletenessIssue(issues, "body", blockId, item.id)}
+            >
               <textarea
                 rows={4}
                 value={item.body}
                 onChange={(event) => patch(item.id, { body: event.target.value })}
               />
-            </label>
-            <label>
-              Knapp
+            </AdminField>
+            <AdminField
+              label="Knapp"
+              issue={findCompletenessIssue(issues, "buttonLabel", blockId, item.id)}
+            >
               <input
                 value={item.buttonLabel ?? ""}
                 onChange={(event) => patch(item.id, { buttonLabel: event.target.value })}
               />
-            </label>
-            <label>
-              Undersida
+            </AdminField>
+            <AdminField
+              label="Undersida"
+              issue={findCompletenessIssue(issues, "href", blockId, item.id)}
+            >
               <select
                 value={item.href}
                 onChange={(event) => patch(item.id, { href: event.target.value })}
@@ -2142,7 +2589,7 @@ function OfferingRows({
                   </option>
                 ))}
               </select>
-            </label>
+            </AdminField>
           </li>
         ))}
       </ol>
@@ -2203,19 +2650,48 @@ function ImageField({
   src,
   emptyLabel,
   chooseLabel,
+  issue,
   onChoose,
   onClear,
 }: {
   src?: string;
   emptyLabel: string;
   chooseLabel: string;
+  issue?: CompletenessIssue;
   onChoose: (src: string) => void;
   onClear: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [images, setImages] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function uploadImage(file: File) {
+    setUploading(true);
+    setError(null);
+    const form = new FormData();
+    form.set("file", file);
+    try {
+      const response = await fetch("/api/library-images", { method: "POST", body: form });
+      const data = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (!response.ok || !data?.url) {
+        setError(data?.error ?? "Kunde inte ladda upp bilden.");
+        return;
+      }
+      forgetLibraryImages();
+      const next = await loadLibraryImages();
+      setImages(next.includes(data.url) ? next : [data.url, ...next]);
+      onChoose(data.url);
+      setOpen(false);
+    } catch {
+      setError("Kunde inte ladda upp bilden.");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -2252,13 +2728,19 @@ function ImageField({
   }, [open]);
 
   return (
-    <div className="admin-image" ref={rootRef}>
+    <div
+      id={issue?.id}
+      className={issue ? "admin-image is-invalid" : "admin-image"}
+      ref={rootRef}
+    >
       {src ? <img src={src} alt="" /> : <p>{emptyLabel}</p>}
       <div>
         <button
           type="button"
           className="admin-file"
           aria-expanded={open}
+          aria-invalid={issue ? true : undefined}
+          aria-describedby={issue ? `${issue.id}-error` : undefined}
           onClick={() => setOpen((current) => !current)}
         >
           {chooseLabel}
@@ -2269,9 +2751,27 @@ function ImageField({
           </button>
         ) : null}
       </div>
+      {issue ? (
+        <span className="admin-field-error" id={`${issue.id}-error`}>
+          {issue.fieldMessage}
+        </span>
+      ) : null}
       {open ? (
         <div className="admin-image-picker">
           <p>Bilder i biblioteket</p>
+          <label className="admin-upload">
+            {uploading ? "Laddar upp…" : "Ladda upp bild"}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,image/avif"
+              disabled={uploading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadImage(file);
+              }}
+            />
+          </label>
           {error ? <p>{error}</p> : null}
           {images === null && !error ? <p>Hämtar bilder…</p> : null}
           {images?.length === 0 ? <p>Inga bilder att välja.</p> : null}

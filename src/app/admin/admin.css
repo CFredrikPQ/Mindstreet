@@ -463,6 +463,70 @@
   line-height: 1.45;
 }
 
+.admin-completeness {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f8e6df;
+  color: #8a341c;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.admin-completeness > p {
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.admin-completeness ul {
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow: auto;
+  list-style: none;
+}
+
+.admin-completeness li + li {
+  margin-top: 6px;
+}
+
+.admin-completeness button {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.admin-field-error {
+  display: block;
+  margin-top: 6px;
+  color: #8a341c;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.admin-canvas label.is-invalid input,
+.admin-canvas label.is-invalid textarea,
+.admin-canvas label.is-invalid select,
+.admin-create-fields label.is-invalid input,
+.admin-create-fields label.is-invalid select,
+.admin-format.is-invalid textarea {
+  outline: 1px solid #c45c3e;
+  outline-offset: -1px;
+}
+
+.admin-image.is-invalid {
+  outline: 1px solid #c45c3e;
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
 .admin-create-actions {
   justify-content: flex-start;
   margin-top: 12px;
@@ -526,6 +590,17 @@
 .admin-status.is-live {
   background: #1c7c4a;
   color: #fff;
+}
+
+.admin-status.is-incomplete {
+  background: #8a341c;
+  color: #fff;
+}
+
+.admin-page-flags {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
 }
 
 .admin-page-list small,
@@ -922,6 +997,64 @@
 .admin-image-picker button:hover,
 .admin-image-picker button.is-selected {
   border-color: var(--navy);
+}
+
+.admin-upload {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  margin-bottom: 12px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.admin-upload input {
+  display: none;
+}
+
+.admin-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background: #f6f3ef;
+}
+
+.admin-gate form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(420px, 100%);
+  padding: 28px;
+  border-radius: 20px;
+  background: #fff;
+}
+
+.admin-gate h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.admin-gate p {
+  margin: 0;
+}
+
+.admin-gate label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-gate input {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #d7d0c8;
+  border-radius: 10px;
+  font: inherit;
 }
 
 .admin-image-picker img {
@@ -1407,6 +1540,10 @@
 
 .admin-cards li label {
   display: block;
+  margin-top: 8px;
+}
+
+.admin-cards li .admin-image {
   margin-top: 8px;
 }
 

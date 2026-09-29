@@ -1,3 +1,4 @@
+import { cmsPagePath } from "@/lib/cms/completeness";
 import type { CmsPage } from "@/lib/cms/types";
 
 const months = [
@@ -25,12 +26,8 @@ export function formatNewsDate(value: string): string {
   return `${String(day).padStart(2, "0")} ${months[month - 1]} ${year}`;
 }
 
-function pagePath(value: string): string {
-  return value.trim().toLowerCase().replace(/^\/+/, "").replace(/\/+$/, "");
-}
-
 export function newsDateForSlug(slug: string, pages: CmsPage[]): string {
-  const target = pagePath(slug);
+  const target = cmsPagePath(slug);
   if (!target) return "";
 
   for (const page of pages) {
@@ -38,7 +35,7 @@ export function newsDateForSlug(slug: string, pages: CmsPage[]): string {
       if (block.type !== "news" && block.type !== "newsTwelve") continue;
       for (const item of block.items ?? []) {
         const publishedAt = item.publishedAt?.trim() ?? "";
-        if (publishedAt && pagePath(item.href) === target) return publishedAt;
+        if (publishedAt && cmsPagePath(item.href) === target) return publishedAt;
       }
     }
   }

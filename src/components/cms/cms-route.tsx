@@ -1,11 +1,8 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { PageBlocks } from "@/components/cms/page-blocks";
 import { SiteFooter } from "@/components/site-footer";
+import { readCmsState } from "@/lib/cms/blob-store";
 import { newsDateForSlug } from "@/lib/cms/news-date";
-import { getPublishedPage, loadPages } from "@/lib/cms/storage";
-import type { CmsPage } from "@/lib/cms/types";
+import { getPublishedPage } from "@/lib/cms/storage";
 
 export function MissingPage() {
   return (
@@ -26,20 +23,23 @@ export function MissingPage() {
   );
 }
 
-export function CmsRoute({ slug }: { slug: string }) {
-  const [page, setPage] = useState<CmsPage | null | undefined>(undefined);
-  const [publishedAt, setPublishedAt] = useState("");
+export async function CmsRoute({ slug }: { slug: string }) {
+  let stored;
+  try {
+    stored = await readCmsState();
+  } catch {
+    return (
+      <main className="cms-missing">
+        <div>
+          <h1>Sidan kunde inte hämtas</h1>
+          <p>Innehållet är inte tillgängligt just nu.</p>
+        </div>
+      </main>
+    );
+  }
 
-  useEffect(() => {
-    const found = getPublishedPage(slug);
-    setPage(found);
-    setPublishedAt(found ? newsDateForSlug(found.slug, loadPages()) : "");
-    document.title = found ? `${found.title || found.slug} – Mindstreet` : "Mindstreet";
-  }, [slug]);
-
-  if (page === undefined) return null;
-
+  const page = getPublishedPage(slug, stored.state.pages);
   if (!page) return <MissingPage />;
 
-  return <PageBlocks page={page} publishedAt={publishedAt} />;
+  return <PageBlocks page={page} publishedAt={newsDateForSlug(page.slug, stored.state.pages)} />;
 }
