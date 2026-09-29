@@ -2,12 +2,9 @@
 
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { HomeEditor } from "@/components/cms/home-editor";
 import { applyInline } from "@/lib/cms/inline";
 import { LockedFooterNote } from "@/components/cms/locked-footer";
 import { PageBlocks } from "@/components/cms/page-blocks";
-import { HomeView } from "@/components/home-view";
-import { HOME_SELECTION, defaultHomeContent, loadHome, writeHome, type HomeContent } from "@/lib/cms/home";
 import {
   SITE_HOST,
   articleParagraphs,
@@ -109,8 +106,7 @@ const panels: { id: Panel; kicker: string; title: string }[] = [
 
 export default function AdminPage() {
   const [pages, setPages] = useState<CmsPage[]>([]);
-  const [home, setHome] = useState<HomeContent>(defaultHomeContent);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(HOME_SELECTION);
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>("pages");
   const [titleInput, setTitleInput] = useState("");
   const [componentTarget, setComponentTarget] = useState(BLANK_TEMPLATE);
@@ -146,12 +142,10 @@ export default function AdminPage() {
     setArchive(loadArchive());
     setTemplates(loadTemplates());
     setTemplateArchive(loadTemplateArchive());
-    setHome(loadHome());
-    setSelectedSlug(HOME_SELECTION);
+    setSelectedSlug(orderedPages(stored)[0]?.slug ?? null);
   }, []);
 
-  const homeSelected = selectedSlug === HOME_SELECTION;
-  const selected = homeSelected ? null : pages.find((page) => page.slug === selectedSlug) ?? null;
+  const selected = pages.find((page) => page.slug === selectedSlug) ?? null;
   const listedPages = orderedPages(pages);
   const templateOptions = templateChoices(pages, templates, hiddenTemplateSlugs(templateArchive));
   const templatePage = templateOptions.find((page) => page.slug === templateSlug) ?? null;
@@ -193,16 +187,6 @@ export default function AdminPage() {
     setPages(next);
     setNotice(null);
     return true;
-  }
-
-  function persistHome(next: HomeContent) {
-    const error = writeHome(next);
-    if (error) {
-      setNotice(error);
-      return;
-    }
-    setHome(next);
-    setNotice(null);
   }
 
   function findTemplate(slug: string | null) {
@@ -321,7 +305,7 @@ export default function AdminPage() {
       setTemplates(result.templates);
     }
     closeDelete();
-    setSelectedSlug(HOME_SELECTION);
+    setSelectedSlug(orderedPages(result.next)[0]?.slug ?? null);
     setNotice("Sidan är borttagen och ligger under Borttagna sidor och mallar.");
   }
 
@@ -537,9 +521,6 @@ export default function AdminPage() {
               onClick={() => {
                 setPanel(item.id);
                 setNotice(null);
-                if (item.id === "components" && selectedSlug === HOME_SELECTION) {
-                  setSelectedSlug(pagesRef.current[0]?.slug ?? HOME_SELECTION);
-                }
               }}
             >
               <RailIcon name={item.id} />
@@ -576,22 +557,6 @@ export default function AdminPage() {
               <div className="admin-pages-layout">
                 <section aria-label="Befintliga sidor">
                   <ul className="admin-page-list">
-                    <li>
-                      <button
-                        type="button"
-                        className={homeSelected ? "is-selected" : undefined}
-                        onClick={() => {
-                          setSelectedSlug(HOME_SELECTION);
-                          setNotice(null);
-                        }}
-                      >
-                        <span className="admin-page-row">
-                          <span className="admin-page-name">Startsida</span>
-                          <span className="admin-status is-live">Publicerad</span>
-                        </span>
-                        <small>{SITE_HOST}</small>
-                      </button>
-                    </li>
                     {listedPages.map((page) => (
                       <li key={page.slug} className={page.parentSlug ? "is-child" : undefined}>
                         <button
@@ -617,23 +582,7 @@ export default function AdminPage() {
                   </ul>
                 </section>
 
-                {homeSelected ? (
-                  <section aria-label="Startsida">
-                    <div className="admin-main-head">
-                      <div>
-                        <p className="admin-kicker">Sida</p>
-                        <h2 className="admin-title">Startsida</h2>
-                        <p className="admin-preview">{SITE_HOST}</p>
-                      </div>
-                      <div className="admin-main-actions">
-                        <a className="admin-primary" href="/" target="_blank" rel="noreferrer">
-                          Öppna sida
-                        </a>
-                      </div>
-                    </div>
-                    <HomeEditor content={home} onChange={persistHome} />
-                  </section>
-                ) : selected ? (
+                {selected ? (
                   <section aria-label="Vald sida">
                     <div className="admin-main-head">
                       <div>
@@ -750,13 +699,11 @@ export default function AdminPage() {
                       </button>
                     </section>
                   </section>
-                ) : null}
+                ) : (
+                  <p className="admin-empty">Inga sidor.</p>
+                )}
 
-                {homeSelected ? (
-                  <PageMiniature url={SITE_HOST} summary="Startsida och footer">
-                    <HomeView content={home} />
-                  </PageMiniature>
-                ) : selected ? (
+                {selected ? (
                   <PageMiniature url={`${SITE_HOST}/${selected.slug}`} page={selected} />
                 ) : null}
               </div>

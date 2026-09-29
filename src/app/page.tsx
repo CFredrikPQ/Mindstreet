@@ -1,5 +1,5 @@
-import { HomeView } from "@/components/home-view";
+import { MissingPage } from "@/components/cms/cms-route";
 
 export default function HomePage() {
-  return <HomeView />;
+  return <MissingPage />;
 }
