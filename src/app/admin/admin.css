@@ -1703,6 +1703,91 @@
   cursor: pointer;
 }
 
+.admin-format-bar {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 3px;
+  border: 1px solid rgba(36, 36, 36, 0.18);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.admin-canvas .admin-format-bar select,
+.admin-card-body .admin-format-bar select,
+.admin-format-bar select {
+  width: auto;
+  min-height: 32px;
+  margin: 0;
+  padding: 0 22px 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background-color: transparent;
+  font: inherit;
+  font-size: 14px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.admin-format-rule {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 4px;
+  background: rgba(36, 36, 36, 0.15);
+}
+
+.admin-format-bar button,
+.admin-canvas .admin-format-bar button,
+.admin-draft-main .admin-format-bar button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #242424;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-format-bar button[aria-pressed="true"] {
+  background: rgba(0, 43, 61, 0.1);
+}
+
+.admin-format-bar button.admin-format-italic {
+  font-style: italic;
+  font-weight: 400;
+}
+
+.admin-format-bar button.admin-format-underline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-format-bar button svg {
+  display: block;
+}
+
+.admin-format-clear {
+  font-weight: 500;
+  font-size: 15px;
+  letter-spacing: -0.03em;
+}
+
+.admin-format-clear sub {
+  font-size: 10px;
+}
+
 .admin-check {
   display: flex;
   align-items: center;

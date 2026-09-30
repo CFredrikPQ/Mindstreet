@@ -13,7 +13,15 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { applyInline, applyLineFormat, type LineFormat } from "@/lib/cms/inline";
+import {
+  applyInline,
+  applyLineFormat,
+  applyTextStyle,
+  clearFormatting,
+  inspectFormat,
+  type LineFormat,
+  type TextStyle,
+} from "@/lib/cms/inline";
 import {
   findCompletenessIssue,
   isPageComplete,
@@ -1745,6 +1753,7 @@ function BlockFieldsEditor({
           rows={3}
           value={block.quote}
           issue={quoteIssue}
+          lines
           onChange={(quote) => onChange({ quote })}
         />
         <AdminField label="Källa">
@@ -2177,9 +2186,36 @@ function FormattedText({
   onChange: (value: string) => void;
 }) {
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const selectionRef = useRef({ start: 0, end: 0 });
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const errorId = issue ? `${issue.id}-error` : undefined;
+  const format = lines ? inspectFormat(value, selection.start, selection.end) : null;
+
+  function rememberSelection() {
+    const field = fieldRef.current;
+    if (!field) return;
+    const next = { start: field.selectionStart, end: field.selectionEnd };
+    selectionRef.current = next;
+    setSelection(next);
+  }
+
+  function keepFieldSelection(event: { preventDefault: () => void }) {
+    rememberSelection();
+    event.preventDefault();
+  }
+
+  function pickedSelection() {
+    const field = fieldRef.current;
+    if (field && document.activeElement === field) {
+      return { start: field.selectionStart, end: field.selectionEnd };
+    }
+    return selectionRef.current;
+  }
 
   function replace(next: { value: string; start: number; end: number }) {
+    const range = { start: next.start, end: next.end };
+    selectionRef.current = range;
+    setSelection(range);
     onChange(next.value);
     requestAnimationFrame(() => {
       const field = fieldRef.current;
@@ -2189,12 +2225,11 @@ function FormattedText({
     });
   }
 
-  function format(kind: "bold" | "link") {
-    const field = fieldRef.current;
-    if (!field) return;
+  function formatInline(kind: "bold" | "italic" | "underline" | "link") {
+    const picked = pickedSelection();
     const url = kind === "link" ? window.prompt("Klistra in länken", "https://") ?? "" : "";
     if (kind === "link" && !url.trim()) return;
-    const next = applyInline(value, field.selectionStart, field.selectionEnd, kind, url);
+    const next = applyInline(value, picked.start, picked.end, kind, url);
     if (!next) {
       window.alert("Länken behöver börja med https://, http://, /, #, mailto: eller tel:.");
       return;
@@ -2203,41 +2238,127 @@ function FormattedText({
   }
 
   function formatLine(kind: LineFormat) {
-    const field = fieldRef.current;
-    if (!field) return;
-    replace(applyLineFormat(value, field.selectionStart, field.selectionEnd, kind));
+    const picked = pickedSelection();
+    replace(applyLineFormat(value, picked.start, picked.end, kind));
+  }
+
+  function formatStyle(style: TextStyle) {
+    const picked = selectionRef.current;
+    replace(applyTextStyle(value, picked.start, picked.end, style));
+  }
+
+  function clearSelected() {
+    const picked = pickedSelection();
+    replace(clearFormatting(value, picked.start, picked.end));
   }
 
   return (
     <div id={issue?.id} className={issue ? "admin-format is-invalid" : "admin-format"}>
       <span>{label}</span>
-      <div className="admin-format-tools">
-        <button type="button" onClick={() => format("bold")}>
-          Fetstil
-        </button>
-        <button type="button" onClick={() => format("link")}>
-          Länk
-        </button>
-        {lines ? (
-          <>
-            <button type="button" onClick={() => formatLine("bullet")}>
-              Punktlista
-            </button>
-            <button type="button" onClick={() => formatLine("number")}>
-              Numrerad lista
-            </button>
-            <button type="button" onClick={() => formatLine("heading")}>
-              Rubrik
-            </button>
-          </>
-        ) : null}
-      </div>
+      {lines && format ? (
+        <div className="admin-format-bar">
+          <select
+            aria-label="Textstil"
+            value={format.style}
+            onPointerDown={rememberSelection}
+            onChange={(event) => formatStyle(event.target.value as TextStyle)}
+          >
+            <option value="normal">Normal</option>
+            <option value="heading">Rubrik</option>
+          </select>
+          <span className="admin-format-rule" aria-hidden="true" />
+          <button
+            type="button"
+            aria-label="Fetstil"
+            title="Fetstil"
+            aria-pressed={format.bold}
+            onMouseDown={keepFieldSelection}
+            onClick={() => formatInline("bold")}
+          >
+            B
+          </button>
+          <button
+            type="button"
+            className="admin-format-italic"
+            aria-label="Kursiv"
+            title="Kursiv"
+            aria-pressed={format.italic}
+            onMouseDown={keepFieldSelection}
+            onClick={() => formatInline("italic")}
+          >
+            I
+          </button>
+          <button
+            type="button"
+            className="admin-format-underline"
+            aria-label="Understrykning"
+            title="Understrykning"
+            aria-pressed={format.underline}
+            onMouseDown={keepFieldSelection}
+            onClick={() => formatInline("underline")}
+          >
+            U
+          </button>
+          <button
+            type="button"
+            aria-label="Punktlista"
+            title="Punktlista"
+            aria-pressed={format.bullet}
+            onMouseDown={keepFieldSelection}
+            onClick={() => formatLine("bullet")}
+          >
+            <BulletListIcon />
+          </button>
+          <button
+            type="button"
+            aria-label="Numrerad lista"
+            title="Numrerad lista"
+            aria-pressed={format.number}
+            onMouseDown={keepFieldSelection}
+            onClick={() => formatLine("number")}
+          >
+            <NumberListIcon />
+          </button>
+          <button
+            type="button"
+            aria-label="Hyperlänk"
+            title="Hyperlänk"
+            onMouseDown={keepFieldSelection}
+            onClick={() => formatInline("link")}
+          >
+            <LinkIcon />
+          </button>
+          <button
+            type="button"
+            aria-label="Ta bort formatering"
+            title="Ta bort formatering"
+            onMouseDown={keepFieldSelection}
+            onClick={clearSelected}
+          >
+            <span className="admin-format-clear" aria-hidden="true">
+              T<sub>x</sub>
+            </span>
+          </button>
+        </div>
+      ) : (
+        <div className="admin-format-tools">
+          <button type="button" onMouseDown={rememberSelection} onClick={() => formatInline("bold")}>
+            Fetstil
+          </button>
+          <button type="button" onMouseDown={rememberSelection} onClick={() => formatInline("link")}>
+            Länk
+          </button>
+        </div>
+      )}
       <textarea
         ref={fieldRef}
         rows={rows}
         value={value}
         aria-invalid={issue ? true : undefined}
         aria-describedby={errorId}
+        onSelect={rememberSelection}
+        onKeyUp={rememberSelection}
+        onMouseUp={rememberSelection}
         onChange={(event) => onChange(event.target.value)}
       />
       {issue ? (
@@ -2246,6 +2367,57 @@ function FormattedText({
         </span>
       ) : null}
     </div>
+  );
+}
+
+function BulletListIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <circle cx="3.5" cy="5" r="1.15" fill="currentColor" />
+      <circle cx="3.5" cy="9" r="1.15" fill="currentColor" />
+      <circle cx="3.5" cy="13" r="1.15" fill="currentColor" />
+      <path d="M7 5h8M7 9h8M7 13h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NumberListIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path d="M7 4.5h8M7 9h8M7 13.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <text x="1" y="6.3" fill="currentColor" fontSize="6.5" fontFamily="sans-serif">
+        1
+      </text>
+      <text x="1" y="10.8" fill="currentColor" fontSize="6.5" fontFamily="sans-serif">
+        2
+      </text>
+      <text x="1" y="15.3" fill="currentColor" fontSize="6.5" fontFamily="sans-serif">
+        3
+      </text>
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

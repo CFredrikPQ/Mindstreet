@@ -425,6 +425,15 @@
   font-size: 30px;
 }
 
+.cms-article-copy em {
+  font-style: italic;
+}
+
+.cms-article-copy u {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .cms-article a {
   color: inherit;
   text-underline-offset: 3px;
@@ -448,6 +457,40 @@
   font-style: italic;
   font-size: 30px;
   line-height: 56px;
+}
+
+.cms-article-copy .cms-article-quote-text p,
+.cms-article-copy .cms-article-quote-text li,
+.cms-article-copy .cms-article-quote-text ul,
+.cms-article-copy .cms-article-quote-text ol {
+  margin: 0 0 56px;
+  color: #000;
+  font-family: var(--font-lato), "Lato", sans-serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 56px;
+}
+
+.cms-article-copy .cms-article-quote-text ul,
+.cms-article-copy .cms-article-quote-text ol {
+  padding-left: 1.4em;
+}
+
+.cms-article-copy .cms-article-quote-text li {
+  margin: 0;
+}
+
+.cms-article-copy .cms-article-quote-text > :last-child {
+  margin-bottom: 0;
+}
+
+.cms-article-copy .cms-article-quote-text .cms-article-subhead {
+  font-size: 40px;
+}
+
+.cms-article-copy .cms-article-quote-text strong {
+  font-weight: 700;
 }
 
 .cms-article-copy .cms-article-quote-credit {

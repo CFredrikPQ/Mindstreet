@@ -472,7 +472,9 @@ function ArticleParagraph({ text }: { text: string }) {
 function ArticleQuote({ quote, credit }: { quote: string; credit: string }) {
   return (
     <blockquote>
-      <p className="cms-article-quote-text">{renderInline(quote)}</p>
+      <div className="cms-article-quote-text">
+        <ArticleParagraph text={quote} />
+      </div>
       {credit ? <p className="cms-article-quote-credit">{renderInline(credit)}</p> : null}
     </blockquote>
   );
