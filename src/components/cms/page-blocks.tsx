@@ -245,7 +245,8 @@ function BlockView({
     const quote = block.quote?.trim() ?? "";
     const credit = block.quoteCredit?.trim() ?? "";
     const after = quote ? quoteAfterIndex(block.quoteAfter, paragraphs.length) : -1;
-    const dateLabel = formatNewsDate(publishedAt);
+    const articleDate = block.publishedAt?.trim() || publishedAt;
+    const dateLabel = formatNewsDate(articleDate);
     return (
       <ThemedSurface block={block}>
         <a className="cms-article-back" href={articleBackHref(block.parentSlug, parentHref)}>
@@ -256,7 +257,7 @@ function BlockView({
           <div className="cms-article-intro">
             {block.heading ? <h2>{block.heading}</h2> : null}
             {dateLabel ? (
-              <time className="cms-article-date" dateTime={publishedAt}>
+              <time className="cms-article-date" dateTime={articleDate}>
                 {dateLabel}
               </time>
             ) : null}

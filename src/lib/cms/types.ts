@@ -46,6 +46,7 @@ export type CmsBlock = {
   quote?: string;
   quoteCredit?: string;
   quoteAfter?: number;
+  publishedAt?: string;
   imageSide?: ImageSide;
   align?: BlockAlign;
   theme?: BlockTheme;

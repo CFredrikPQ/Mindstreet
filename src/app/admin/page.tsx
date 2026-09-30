@@ -1817,6 +1817,15 @@ function BlockFieldsEditor({
           </AdminField>
         )
       ) : null}
+      {block.type === "article" ? (
+        <AdminField label="Publiceringsdatum">
+          <input
+            type="date"
+            value={block.publishedAt ?? ""}
+            onChange={(event) => onChange({ publishedAt: event.target.value })}
+          />
+        </AdminField>
+      ) : null}
       {fields.body ? (
         block.type === "article" ? (
           <FormattedText
