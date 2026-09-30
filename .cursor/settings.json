@@ -1,0 +1,7 @@
+{
+  "plugins": {
+    "vercel@cursor-public": {
+      "enabled": true
+    }
+  }
+}
