@@ -87,7 +87,7 @@ function forgetLibraryImages() {
   libraryImagesRequest = null;
 }
 
-type Panel = "pages" | "create" | "components" | "archive";
+type Panel = "pages" | "create" | "components" | "images" | "archive";
 
 const BLANK_TEMPLATE = "__blank__";
 
@@ -123,6 +123,7 @@ const panels: { id: Panel; kicker: string; title: string }[] = [
   { id: "pages", kicker: "Befintliga", title: "Publicerade sidor" },
   { id: "create", kicker: "Ny sida", title: "Skapa ny sida av mall" },
   { id: "components", kicker: "Bibliotek", title: "Skapa ny sidmall utifrån komponenter" },
+  { id: "images", kicker: "Bilder", title: "Bilder i blobben" },
 ];
 
 export default function AdminPage() {
@@ -1523,6 +1524,13 @@ export default function AdminPage() {
             </div>
           ) : null}
 
+          {panel === "images" ? (
+            <div className="admin-panel">
+              <PageHeading kicker="Bilder" title="Bilder i blobben" />
+              <BlobLibrary />
+            </div>
+          ) : null}
+
           {panel === "archive" ? (
             <div className="admin-panel">
               <PageHeading kicker="Borttagna" title="Borttagna sidor och mallar" />
@@ -2805,6 +2813,177 @@ function ImageField({
   );
 }
 
+function blobFileName(url: string) {
+  const name = decodeURIComponent(url.split("/").pop() ?? url);
+  return name.replace(/-[A-Za-z0-9]{8,}(?=\.[^.]+$)/, "");
+}
+
+function BlobLibrary() {
+  const [images, setImages] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function loadImages() {
+    const response = await fetch("/api/library-images?source=blob", { cache: "no-store" });
+    const data = (await response.json().catch(() => null)) as { images?: string[]; error?: string } | null;
+    if (!response.ok) throw new Error(data?.error ?? "Kunde inte läsa bilderna.");
+    return data?.images ?? [];
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    loadImages()
+      .then((next) => {
+        if (!cancelled) {
+          setImages(next);
+          setError(null);
+        }
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) {
+          setImages([]);
+          setError(reason instanceof Error ? reason.message : "Kunde inte läsa bilderna.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pendingUrl) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape" && !deleting) setPendingUrl(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pendingUrl, deleting]);
+
+  async function uploadImages(files: File[]) {
+    if (files.length === 0) return;
+    setUploading(true);
+    setError(null);
+    const failed: string[] = [];
+    try {
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        setProgress(`Laddar upp ${index + 1} av ${files.length}…`);
+        const form = new FormData();
+        form.set("file", file);
+        const response = await fetch("/api/library-images", { method: "POST", body: form });
+        const data = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
+        if (!response.ok || !data?.url) failed.push(file.name);
+      }
+      forgetLibraryImages();
+      setImages(await loadImages());
+      if (failed.length > 0) {
+        setError(`Kunde inte ladda upp ${failed.join(", ")}.`);
+      }
+    } catch {
+      setError("Kunde inte ladda upp bilderna.");
+    } finally {
+      setUploading(false);
+      setProgress(null);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function confirmDelete() {
+    if (!pendingUrl) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/library-images", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: pendingUrl }),
+      });
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        setError(data?.error ?? "Kunde inte ta bort bilden.");
+        return;
+      }
+      forgetLibraryImages();
+      setImages((current) => current?.filter((image) => image !== pendingUrl) ?? []);
+      setPendingUrl(null);
+    } catch {
+      setError("Kunde inte ta bort bilden.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <section className="admin-blob" aria-label="Uppladdade bilder">
+      <p>Här visas bara bilder som ligger i blobben. Bilderna i projektet syns inte i den här listan.</p>
+      <div className="admin-blob-toolbar">
+        <label className="admin-upload">
+          {progress ?? "Ladda upp bilder"}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,image/avif"
+            multiple
+            disabled={uploading || deleting}
+            onChange={(event) => {
+              const files = [...(event.target.files ?? [])];
+              if (files.length > 0) void uploadImages(files);
+            }}
+          />
+        </label>
+      </div>
+      {error ? <p className="admin-blob-error">{error}</p> : null}
+      {images === null ? <p>Hämtar bilder…</p> : null}
+      {images?.length === 0 ? <p className="admin-empty">Inga uppladdade bilder ännu.</p> : null}
+      {images && images.length > 0 ? (
+        <ul className="admin-blob-grid">
+          {images.map((image) => {
+            const name = blobFileName(image);
+            return (
+              <li key={image} className="admin-blob-card">
+                <img src={image} alt="" />
+                <span title={name}>{name}</span>
+                <button type="button" onClick={() => setPendingUrl(image)}>
+                  Ta bort
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {pendingUrl ? (
+        <div
+          className="admin-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !deleting) setPendingUrl(null);
+          }}
+        >
+          <div className="admin-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-blob-title">
+            <h2 id="delete-blob-title">Ta bort bilden?</h2>
+            <p>
+              <strong>{blobFileName(pendingUrl)}</strong> tas bort från blobben. Sidor som använder bilden
+              visar den inte längre.
+            </p>
+            <img className="admin-blob-confirm" src={pendingUrl} alt="" />
+            <div className="admin-modal-actions">
+              <button type="button" className="admin-quiet" disabled={deleting} onClick={() => setPendingUrl(null)}>
+                Avbryt
+              </button>
+              <button type="button" className="admin-danger-button" disabled={deleting} onClick={() => void confirmDelete()}>
+                {deleting ? "Tar bort…" : "Ta bort bild"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function MindstreetMark() {
   return (
     <span className="admin-mark" role="img" aria-label="Mindstreet">
@@ -2851,6 +3030,16 @@ function RailIcon({ name }: { name: Panel | "logout" }) {
         <rect x="13.5" y="3.5" width="7" height="7" rx="1.4" />
         <rect x="3.5" y="13.5" width="7" height="7" rx="1.4" />
         <rect x="13.5" y="13.5" width="7" height="7" rx="1.4" />
+      </svg>
+    );
+  }
+
+  if (name === "images") {
+    return (
+      <svg {...props}>
+        <rect x="3.5" y="5" width="17" height="14" rx="1.6" />
+        <path d="M3.5 15.5 8.2 11l3.2 3.1 2.3-2.2 5.3 4.6" />
+        <circle cx="15.5" cy="9" r="1.2" />
       </svg>
     );
   }

@@ -1,4 +1,4 @@
-import { list, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
@@ -9,19 +9,34 @@ export const dynamic = "force-dynamic";
 const EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".avif"]);
 const MAX_BYTES = 10_000_000;
 
-export async function GET() {
-  const images = new Set<string>();
-
+function isLibraryBlobUrl(url: string): boolean {
   try {
-    const directory = path.join(process.cwd(), "public", "images");
-    const entries = await readdir(directory, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isFile() && EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
-        images.add(`/images/${entry.name}`);
-      }
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || !parsed.hostname.endsWith(".blob.vercel-storage.com")) {
+      return false;
     }
+    return decodeURIComponent(parsed.pathname).startsWith("/library/");
   } catch {
-    // The static folder can be empty in some environments.
+    return false;
+  }
+}
+
+export async function GET(request: Request) {
+  const images = new Set<string>();
+  const blobOnly = new URL(request.url).searchParams.get("source") === "blob";
+
+  if (!blobOnly) {
+    try {
+      const directory = path.join(process.cwd(), "public", "images");
+      const entries = await readdir(directory, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isFile() && EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+          images.add(`/images/${entry.name}`);
+        }
+      }
+    } catch {
+      // The static folder can be empty in some environments.
+    }
   }
 
   try {
@@ -76,5 +91,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: blob.url });
   } catch {
     return NextResponse.json({ error: "Kunde inte ladda upp bilden." }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  if (!(await isAdmin())) {
+    return NextResponse.json({ error: "Logga in för att ta bort bilder." }, { status: 401 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Ogiltig begäran." }, { status: 400 });
+  }
+
+  const url = body && typeof body === "object" && "url" in body ? (body as { url?: unknown }).url : null;
+  if (typeof url !== "string" || !isLibraryBlobUrl(url)) {
+    return NextResponse.json({ error: "Bilden finns inte i blob-biblioteket." }, { status: 400 });
+  }
+
+  try {
+    await del(url);
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Kunde inte ta bort bilden." }, { status: 500 });
   }
 }
