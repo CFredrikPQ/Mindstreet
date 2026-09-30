@@ -6,6 +6,7 @@ import { renderInline } from "@/lib/cms/inline";
 import { articleParagraphs, quoteAfterIndex, resolveTheme } from "@/lib/cms/library";
 import { formatNewsDate } from "@/lib/cms/news-date";
 import type { CmsBlock, CmsPage } from "@/lib/cms/types";
+import type { ReactNode } from "react";
 import "./page-blocks.css";
 
 export function PageBlocks({
@@ -265,7 +266,7 @@ function BlockView({
             {after === -1 && quote ? <ArticleQuote quote={quote} credit={credit} /> : null}
             {paragraphs.map((paragraph, index) => (
               <div key={index}>
-                <p>{renderInline(paragraph)}</p>
+                <ArticleParagraph text={paragraph} />
                 {after === index && quote ? <ArticleQuote quote={quote} credit={credit} /> : null}
               </div>
             ))}
@@ -391,6 +392,81 @@ function ModuleCopy({ block }: { block: CmsBlock }) {
       ) : null}
     </div>
   );
+}
+
+function ArticleParagraph({ text }: { text: string }) {
+  const blocks: ReactNode[] = [];
+  let paragraph: string[] = [];
+  let bullets: string[] = [];
+  let numbers: string[] = [];
+  let key = 0;
+
+  function flushParagraph() {
+    if (paragraph.length === 0) return;
+    blocks.push(<p key={key++}>{renderInline(paragraph.join("\n"))}</p>);
+    paragraph = [];
+  }
+
+  function flushBullets() {
+    if (bullets.length === 0) return;
+    blocks.push(
+      <ul key={key++}>
+        {bullets.map((item, index) => (
+          <li key={index}>{renderInline(item)}</li>
+        ))}
+      </ul>,
+    );
+    bullets = [];
+  }
+
+  function flushNumbers() {
+    if (numbers.length === 0) return;
+    blocks.push(
+      <ol key={key++}>
+        {numbers.map((item, index) => (
+          <li key={index}>{renderInline(item)}</li>
+        ))}
+      </ol>,
+    );
+    numbers = [];
+  }
+
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith("# ")) {
+      flushParagraph();
+      flushBullets();
+      flushNumbers();
+      blocks.push(
+        <p key={key++} className="cms-article-subhead">
+          {renderInline(line.slice(2))}
+        </p>,
+      );
+      continue;
+    }
+    if (line.startsWith("- ")) {
+      flushParagraph();
+      flushNumbers();
+      bullets.push(line.slice(2));
+      continue;
+    }
+    const numbered = line.match(/^\d+\.\s+(.*)$/);
+    if (numbered) {
+      flushParagraph();
+      flushBullets();
+      numbers.push(numbered[1]);
+      continue;
+    }
+    flushBullets();
+    flushNumbers();
+    paragraph.push(line);
+  }
+
+  flushParagraph();
+  flushBullets();
+  flushNumbers();
+  return <>{blocks}</>;
 }
 
 function ArticleQuote({ quote, credit }: { quote: string; credit: string }) {

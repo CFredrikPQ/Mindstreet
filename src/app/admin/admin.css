@@ -1687,6 +1687,7 @@
 
 .admin-format-tools {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
 }

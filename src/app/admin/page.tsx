@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { applyInline } from "@/lib/cms/inline";
+import { applyInline, applyLineFormat, type LineFormat } from "@/lib/cms/inline";
 import {
   findCompletenessIssue,
   isPageComplete,
@@ -1815,6 +1815,7 @@ function BlockFieldsEditor({
             rows={8}
             value={block.body}
             issue={bodyIssue}
+            lines
             onChange={(body) => onChange({ body })}
           />
         ) : (
@@ -2165,16 +2166,28 @@ function FormattedText({
   rows,
   value,
   issue,
+  lines = false,
   onChange,
 }: {
   label: string;
   rows: number;
   value: string;
   issue?: CompletenessIssue;
+  lines?: boolean;
   onChange: (value: string) => void;
 }) {
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const errorId = issue ? `${issue.id}-error` : undefined;
+
+  function replace(next: { value: string; start: number; end: number }) {
+    onChange(next.value);
+    requestAnimationFrame(() => {
+      const field = fieldRef.current;
+      if (!field) return;
+      field.focus();
+      field.setSelectionRange(next.start, next.end);
+    });
+  }
 
   function format(kind: "bold" | "link") {
     const field = fieldRef.current;
@@ -2186,11 +2199,13 @@ function FormattedText({
       window.alert("Länken behöver börja med https://, http://, /, #, mailto: eller tel:.");
       return;
     }
-    onChange(next.value);
-    requestAnimationFrame(() => {
-      field.focus();
-      field.setSelectionRange(next.start, next.end);
-    });
+    replace(next);
+  }
+
+  function formatLine(kind: LineFormat) {
+    const field = fieldRef.current;
+    if (!field) return;
+    replace(applyLineFormat(value, field.selectionStart, field.selectionEnd, kind));
   }
 
   return (
@@ -2203,6 +2218,19 @@ function FormattedText({
         <button type="button" onClick={() => format("link")}>
           Länk
         </button>
+        {lines ? (
+          <>
+            <button type="button" onClick={() => formatLine("bullet")}>
+              Punktlista
+            </button>
+            <button type="button" onClick={() => formatLine("number")}>
+              Numrerad lista
+            </button>
+            <button type="button" onClick={() => formatLine("heading")}>
+              Rubrik
+            </button>
+          </>
+        ) : null}
       </div>
       <textarea
         ref={fieldRef}

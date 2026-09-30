@@ -47,6 +47,50 @@ export function renderInline(text: string): ReactNode[] {
   return nodes;
 }
 
+export type LineFormat = "bullet" | "number" | "heading";
+
+const lineMarker = /^(?:-\s+|\d+\.\s+|#\s+)/;
+
+function lineMarkerKind(line: string): LineFormat | null {
+  if (/^-\s+/.test(line)) return "bullet";
+  if (/^\d+\.\s+/.test(line)) return "number";
+  if (/^#\s+/.test(line)) return "heading";
+  return null;
+}
+
+export function applyLineFormat(
+  value: string,
+  start: number,
+  end: number,
+  kind: LineFormat,
+): { value: string; start: number; end: number } {
+  const from = Math.min(start, end);
+  const to = Math.max(start, end);
+  const lineStart = value.lastIndexOf("\n", Math.max(0, from - 1)) + 1;
+  let exclusive = to;
+  if (exclusive > from && value[exclusive - 1] === "\n") exclusive -= 1;
+  const lineBreak = value.indexOf("\n", exclusive);
+  const lineEnd = lineBreak === -1 ? value.length : lineBreak;
+  const lines = value.slice(lineStart, lineEnd).split("\n");
+  const active = lines.filter((line) => line.trim());
+  const remove = active.length > 0 && active.every((line) => lineMarkerKind(line.trim()) === kind);
+  let number = 1;
+  const nextLines = lines.map((line) => {
+    if (!line.trim()) return line;
+    const text = line.trim().replace(lineMarker, "");
+    if (remove) return text;
+    if (kind === "bullet") return `- ${text}`;
+    if (kind === "heading") return `# ${text}`;
+    return `${number++}. ${text}`;
+  });
+  const insert = nextLines.join("\n");
+  return {
+    value: value.slice(0, lineStart) + insert + value.slice(lineEnd),
+    start: lineStart,
+    end: lineStart + insert.length,
+  };
+}
+
 export function applyInline(
   value: string,
   start: number,
