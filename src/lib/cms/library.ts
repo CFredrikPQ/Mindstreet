@@ -374,6 +374,7 @@ export function cloneTemplateBlocks(blocks: CmsBlock[]): CmsBlock[] {
     if (block.quote !== undefined) {
       next.quote = "";
       if (block.quoteAfter !== undefined) next.quoteAfter = block.quoteAfter;
+      if (block.quoteCredit !== undefined) next.quoteCredit = "";
     }
     if (
       block.type === "expertise" ||

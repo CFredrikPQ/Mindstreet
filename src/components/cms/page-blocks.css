@@ -347,16 +347,32 @@
 }
 
 .cms-article {
-  max-width: 720px;
+  max-width: var(--content);
   margin: 0 auto;
-  padding: 28px var(--gutter) 88px;
+  padding: 28px 0 88px;
+}
+
+.cms-article-intro {
+  width: min(893px, calc(100% - 101px));
+  margin-left: 101px;
+  margin-right: auto;
+  padding-inline: 0;
+}
+
+.cms-article-copy {
+  max-width: calc(834px + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: var(--gutter);
 }
 
 .cms-article h2 {
   margin-bottom: 28px;
-  font-size: clamp(32px, 3.1vw, 45px);
+  color: #000;
+  font-family: var(--font-lato), "Lato", sans-serif;
+  font-style: normal;
   font-weight: 400;
-  line-height: 1.2;
+  font-size: 60px;
+  line-height: 80px;
 }
 
 .cms-article h2:has(+ .cms-article-date) {
@@ -374,16 +390,24 @@
 }
 
 .cms-article .cms-media-photo {
+  display: block;
+  width: min(1228px, calc(100% - 212px));
   height: auto;
-  max-height: 420px;
-  margin-bottom: 32px;
-  aspect-ratio: 16 / 9;
+  max-height: none;
+  margin: 0 auto 32px;
+  aspect-ratio: 1228 / 751;
+  object-fit: cover;
+  border-radius: 20px;
 }
 
 .cms-article-copy p {
-  margin: 0 0 22px;
+  margin: 0 0 28px;
+  color: #000;
+  font-family: var(--font-lato), "Lato", sans-serif;
+  font-style: normal;
+  font-weight: 400;
   font-size: 20px;
-  line-height: 1.7;
+  line-height: 35px;
 }
 
 .cms-article a {
@@ -392,12 +416,33 @@
 }
 
 .cms-article blockquote {
-  margin: 28px 0;
-  padding: 4px 0 4px 22px;
+  margin: 28px 0 28px 1px;
+  padding: 4px 0 4px 62px;
   border-left: 3px solid var(--navy);
-  font-size: clamp(22px, 2.2vw, 28px);
+  color: inherit;
+  font-family: var(--font-lato), "Lato", sans-serif;
+  font-style: italic;
   font-weight: 400;
-  line-height: 1.35;
+}
+
+.cms-article-copy .cms-article-quote-text {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: #000;
+  font-style: italic;
+  font-size: 30px;
+  line-height: 56px;
+}
+
+.cms-article-copy .cms-article-quote-credit {
+  margin: 56px 0 0;
+  color: #777;
+  font-family: var(--font-lato), "Lato", sans-serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 25px;
+  line-height: 56px;
 }
 
 .cms-page-links a:hover {

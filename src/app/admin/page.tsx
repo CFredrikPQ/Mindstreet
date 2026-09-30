@@ -1747,6 +1747,12 @@ function BlockFieldsEditor({
           issue={quoteIssue}
           onChange={(quote) => onChange({ quote })}
         />
+        <AdminField label="Källa">
+          <input
+            value={block.quoteCredit ?? ""}
+            onChange={(event) => onChange({ quoteCredit: event.target.value })}
+          />
+        </AdminField>
         <QuotePlacement
           body={block.body}
           value={block.quoteAfter}
@@ -1837,6 +1843,7 @@ function BlockFieldsEditor({
                 onChange({
                   quote: event.target.checked ? block.quote ?? "" : undefined,
                   quoteAfter: event.target.checked ? block.quoteAfter ?? 0 : undefined,
+                  quoteCredit: event.target.checked ? (block.quoteCredit ?? "") : undefined,
                 })
               }
             />

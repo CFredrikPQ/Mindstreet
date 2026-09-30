@@ -242,6 +242,7 @@ function BlockView({
   if (block.type === "article") {
     const paragraphs = articleParagraphs(block.body);
     const quote = block.quote?.trim() ?? "";
+    const credit = block.quoteCredit?.trim() ?? "";
     const after = quote ? quoteAfterIndex(block.quoteAfter, paragraphs.length) : -1;
     const dateLabel = formatNewsDate(publishedAt);
     return (
@@ -251,19 +252,21 @@ function BlockView({
           Tillbaka
         </a>
         <article className="cms-article">
-          {block.heading ? <h2>{block.heading}</h2> : null}
-          {dateLabel ? (
-            <time className="cms-article-date" dateTime={publishedAt}>
-              {dateLabel}
-            </time>
-          ) : null}
+          <div className="cms-article-intro">
+            {block.heading ? <h2>{block.heading}</h2> : null}
+            {dateLabel ? (
+              <time className="cms-article-date" dateTime={publishedAt}>
+                {dateLabel}
+              </time>
+            ) : null}
+          </div>
           <ModulePhoto src={block.image} />
           <div className="cms-article-copy">
-            {after === -1 && quote ? <blockquote>{renderInline(quote)}</blockquote> : null}
+            {after === -1 && quote ? <ArticleQuote quote={quote} credit={credit} /> : null}
             {paragraphs.map((paragraph, index) => (
               <div key={index}>
                 <p>{renderInline(paragraph)}</p>
-                {after === index && quote ? <blockquote>{renderInline(quote)}</blockquote> : null}
+                {after === index && quote ? <ArticleQuote quote={quote} credit={credit} /> : null}
               </div>
             ))}
           </div>
@@ -387,6 +390,15 @@ function ModuleCopy({ block }: { block: CmsBlock }) {
         </a>
       ) : null}
     </div>
+  );
+}
+
+function ArticleQuote({ quote, credit }: { quote: string; credit: string }) {
+  return (
+    <blockquote>
+      <p className="cms-article-quote-text">{renderInline(quote)}</p>
+      {credit ? <p className="cms-article-quote-credit">{renderInline(credit)}</p> : null}
+    </blockquote>
   );
 }
 

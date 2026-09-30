@@ -44,6 +44,7 @@ export type CmsBlock = {
   buttonLabel?: string;
   buttonHref?: string;
   quote?: string;
+  quoteCredit?: string;
   quoteAfter?: number;
   imageSide?: ImageSide;
   align?: BlockAlign;
