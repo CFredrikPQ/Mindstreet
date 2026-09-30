@@ -1,8 +1,9 @@
 import { del, list, put } from "@vercel/blob";
-import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/cms/admin-session";
+import { readCmsState, writeCmsState } from "@/lib/cms/blob-store";
+import { withoutImage } from "@/lib/cms/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -21,40 +22,27 @@ function isLibraryBlobUrl(url: string): boolean {
   }
 }
 
-export async function GET(request: Request) {
-  const images = new Set<string>();
-  const blobOnly = new URL(request.url).searchParams.get("source") === "blob";
-
-  if (!blobOnly) {
-    try {
-      const directory = path.join(process.cwd(), "public", "images");
-      const entries = await readdir(directory, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isFile() && EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
-          images.add(`/images/${entry.name}`);
-        }
-      }
-    } catch {
-      // The static folder can be empty in some environments.
-    }
-  }
-
-  try {
-    const listed = await list({ prefix: "library/", limit: 1000 });
+async function listLibraryImages(): Promise<string[]> {
+  const images: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const listed = await list({ prefix: "library/", limit: 1000, cursor });
     for (const blob of listed.blobs) {
       if (EXTENSIONS.has(path.extname(blob.pathname).toLowerCase())) {
-        images.add(blob.url);
+        images.push(blob.url);
       }
     }
-  } catch {
-    if (images.size === 0) {
-      return NextResponse.json({ images: [], error: "Kunde inte läsa bildbiblioteket." }, { status: 500 });
-    }
-  }
+    cursor = listed.hasMore ? listed.cursor : undefined;
+  } while (cursor);
+  return images.sort((a, b) => a.localeCompare(b, "sv"));
+}
 
-  return NextResponse.json({
-    images: [...images].sort((a, b) => a.localeCompare(b, "sv")),
-  });
+export async function GET() {
+  try {
+    return NextResponse.json({ images: await listLibraryImages() });
+  } catch {
+    return NextResponse.json({ images: [], error: "Kunde inte läsa bildbiblioteket." }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -113,8 +101,20 @@ export async function DELETE(request: Request) {
 
   try {
     await del(url);
-    return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Kunde inte ta bort bilden." }, { status: 500 });
   }
+
+  try {
+    const stored = await readCmsState();
+    const next = withoutImage(stored.state, url);
+    if (next.changed) await writeCmsState(next.state);
+  } catch {
+    return NextResponse.json({
+      ok: true,
+      warning: "Bilden togs bort från blobben, men kunde inte tas bort från sidorna.",
+    });
+  }
+
+  return NextResponse.json({ ok: true });
 }

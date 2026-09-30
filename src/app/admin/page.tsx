@@ -49,6 +49,7 @@ import {
   themes,
 } from "@/lib/cms/library";
 import {
+  blocksWithoutImage,
   composeSlug,
   deletePagesToArchive,
   deleteTemplateChoice,
@@ -63,6 +64,7 @@ import {
   slugifyTitle,
   templateChoices,
   validateSlug,
+  withoutImage,
   type CmsState,
   type CmsTemplate,
   type PageArchiveEntry,
@@ -73,26 +75,11 @@ import "./admin.css";
 
 const PREVIEW_WIDTH = 1280;
 
-let libraryImagesRequest: Promise<string[]> | null = null;
-
-function loadLibraryImages() {
-  if (!libraryImagesRequest) {
-    libraryImagesRequest = fetch("/api/library-images")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Kunde inte läsa bildbiblioteket.");
-        const data = (await response.json()) as { images?: string[] };
-        return data.images ?? [];
-      })
-      .catch((error) => {
-        libraryImagesRequest = null;
-        throw error;
-      });
-  }
-  return libraryImagesRequest;
-}
-
-function forgetLibraryImages() {
-  libraryImagesRequest = null;
+async function loadLibraryImages() {
+  const response = await fetch("/api/library-images", { cache: "no-store" });
+  const data = (await response.json().catch(() => null)) as { images?: string[]; error?: string } | null;
+  if (!response.ok) throw new Error(data?.error ?? "Kunde inte läsa bildbiblioteket.");
+  return data?.images ?? [];
 }
 
 type Panel = "pages" | "create" | "components" | "images" | "archive";
@@ -131,7 +118,7 @@ const panels: { id: Panel; kicker: string; title: string }[] = [
   { id: "pages", kicker: "Befintliga", title: "Publicerade sidor" },
   { id: "create", kicker: "Ny sida", title: "Skapa ny sida av mall" },
   { id: "components", kicker: "Bibliotek", title: "Skapa ny sidmall utifrån komponenter" },
-  { id: "images", kicker: "Bilder", title: "Bilder i blobben" },
+  { id: "images", kicker: "Bilder", title: "Bildbibliotek" },
 ];
 
 export default function AdminPage() {
@@ -182,6 +169,16 @@ export default function AdminPage() {
       templates: templatesRef.current,
       templateArchive: templateArchiveRef.current,
     };
+  }
+
+  function forgetUploadedImage(url: string) {
+    const next = withoutImage(snapshot(), url);
+    if (next.changed) {
+      applyState(next.state, etagRef.current);
+      void saveNow();
+    }
+    setDraftBlocks((current) => blocksWithoutImage(current, url));
+    setBlankBlocks((current) => blocksWithoutImage(current, url));
   }
 
   function applyState(state: CmsState, etag: string | null) {
@@ -1534,8 +1531,8 @@ export default function AdminPage() {
 
           {panel === "images" ? (
             <div className="admin-panel">
-              <PageHeading kicker="Bilder" title="Bilder i blobben" />
-              <BlobLibrary />
+              <PageHeading kicker="Bilder" title="Bildbibliotek" />
+              <BlobLibrary onRemoved={forgetUploadedImage} />
             </div>
           ) : null}
 
@@ -2904,7 +2901,6 @@ function ImageField({
         setError(data?.error ?? "Kunde inte ladda upp bilden.");
         return;
       }
-      forgetLibraryImages();
       const next = await loadLibraryImages();
       setImages(next.includes(data.url) ? next : [data.url, ...next]);
       onChoose(data.url);
@@ -2982,7 +2978,7 @@ function ImageField({
       ) : null}
       {open ? (
         <div className="admin-image-picker">
-          <p>Bilder i biblioteket</p>
+          <p>Uppladdade bilder</p>
           <label className="admin-upload">
             {uploading ? "Laddar upp…" : "Ladda upp bild"}
             <input
@@ -3034,7 +3030,7 @@ function blobFileName(url: string) {
   return name.replace(/-[A-Za-z0-9]{8,}(?=\.[^.]+$)/, "");
 }
 
-function BlobLibrary() {
+function BlobLibrary({ onRemoved }: { onRemoved: (url: string) => void }) {
   const [images, setImages] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -3044,7 +3040,7 @@ function BlobLibrary() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function loadImages() {
-    const response = await fetch("/api/library-images?source=blob", { cache: "no-store" });
+    const response = await fetch("/api/library-images", { cache: "no-store" });
     const data = (await response.json().catch(() => null)) as { images?: string[]; error?: string } | null;
     if (!response.ok) throw new Error(data?.error ?? "Kunde inte läsa bilderna.");
     return data?.images ?? [];
@@ -3094,7 +3090,6 @@ function BlobLibrary() {
         const data = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
         if (!response.ok || !data?.url) failed.push(file.name);
       }
-      forgetLibraryImages();
       setImages(await loadImages());
       if (failed.length > 0) {
         setError(`Kunde inte ladda upp ${failed.join(", ")}.`);
@@ -3118,14 +3113,15 @@ function BlobLibrary() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url: pendingUrl }),
       });
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      const data = (await response.json().catch(() => null)) as { error?: string; warning?: string } | null;
       if (!response.ok) {
         setError(data?.error ?? "Kunde inte ta bort bilden.");
         return;
       }
-      forgetLibraryImages();
+      onRemoved(pendingUrl);
       setImages((current) => current?.filter((image) => image !== pendingUrl) ?? []);
       setPendingUrl(null);
+      if (data?.warning) setError(data.warning);
     } catch {
       setError("Kunde inte ta bort bilden.");
     } finally {
@@ -3135,7 +3131,10 @@ function BlobLibrary() {
 
   return (
     <section className="admin-blob" aria-label="Uppladdade bilder">
-      <p>Här visas bara bilder som ligger i blobben. Bilderna i projektet syns inte i den här listan.</p>
+      <p>
+        Uppladdade bilder sparas i Vercel Blob och är gemensamma för alla som redigerar. Tar du bort en
+        bild här försvinner den också från sidor, mallar och arkiv.
+      </p>
       <div className="admin-blob-toolbar">
         <label className="admin-upload">
           {progress ?? "Ladda upp bilder"}
@@ -3181,8 +3180,8 @@ function BlobLibrary() {
           <div className="admin-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-blob-title">
             <h2 id="delete-blob-title">Ta bort bilden?</h2>
             <p>
-              <strong>{blobFileName(pendingUrl)}</strong> tas bort från blobben. Sidor som använder bilden
-              visar den inte längre.
+              <strong>{blobFileName(pendingUrl)}</strong> tas bort från Vercel Blob och från varje sida, mall
+              och arkivkopia som använder den.
             </p>
             <img className="admin-blob-confirm" src={pendingUrl} alt="" />
             <div className="admin-modal-actions">

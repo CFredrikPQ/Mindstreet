@@ -65,6 +65,53 @@ export function serializeState(state: CmsState) {
   return { ...state, seedVersion: SEED_VERSION };
 }
 
+export function blocksWithoutImage(blocks: CmsBlock[], url: string): CmsBlock[] {
+  return blocks.map((block) => {
+    const items = block.items?.some((item) => item.image === url)
+      ? block.items.map((item) => (item.image === url ? { ...item, image: "" } : item))
+      : block.items;
+    if (block.image !== url && block.image2 !== url && items === block.items) return block;
+    const next: CmsBlock = { ...block, items };
+    if (next.image === url) delete next.image;
+    if (next.image2 === url) delete next.image2;
+    return next;
+  });
+}
+
+function pageWithoutImage(page: CmsPage, url: string): CmsPage {
+  const blocks = blocksWithoutImage(page.blocks, url);
+  if (blocks.every((block, index) => block === page.blocks[index])) return page;
+  return { ...page, blocks };
+}
+
+export function withoutImage(state: CmsState, url: string): { state: CmsState; changed: boolean } {
+  const pages = state.pages.map((page) => pageWithoutImage(page, url));
+  const archive = state.archive.map((entry) => {
+    const entryPages = entry.pages.map((page) => pageWithoutImage(page, url));
+    if (entryPages.every((page, index) => page === entry.pages[index])) return entry;
+    return { ...entry, pages: entryPages };
+  });
+  const templates = state.templates.map((template) => {
+    const blocks = blocksWithoutImage(template.blocks, url);
+    if (blocks.every((block, index) => block === template.blocks[index])) return template;
+    return { ...template, blocks };
+  });
+  const templateArchive = state.templateArchive.map((entry) => {
+    const blocks = blocksWithoutImage(entry.template.blocks, url);
+    if (blocks.every((block, index) => block === entry.template.blocks[index])) return entry;
+    return { ...entry, template: { ...entry.template, blocks } };
+  });
+  const changed =
+    pages.some((page, index) => page !== state.pages[index]) ||
+    archive.some((entry, index) => entry !== state.archive[index]) ||
+    templates.some((template, index) => template !== state.templates[index]) ||
+    templateArchive.some((entry, index) => entry !== state.templateArchive[index]);
+  return {
+    state: changed ? { pages, archive, templates, templateArchive } : state,
+    changed,
+  };
+}
+
 export function hydrateState(value: unknown): CmsState {
   if (!value || typeof value !== "object") return seedState();
   const raw = value as Partial<CmsState> & { seedVersion?: unknown };
