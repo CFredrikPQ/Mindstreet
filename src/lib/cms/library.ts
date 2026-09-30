@@ -1,4 +1,4 @@
-import type { BlockTheme, BlockType, CmsBlock, CmsCard } from "@/lib/cms/types";
+import type { BlockTheme, BlockType, CmsBlock, CmsCard, CmsPage } from "@/lib/cms/types";
 
 export const SITE_HOST = "www.mindstreet.se";
 
@@ -331,6 +331,72 @@ export function createNewsItems(count = newsStarters.length): CmsCard[] {
 
 export function isNewsBlock(type: BlockType): boolean {
   return type === "news" || type === "newsTwelve";
+}
+
+export function newsCardFromArticle(block: CmsBlock, slug: string, published: boolean): CmsCard {
+  return {
+    id: crypto.randomUUID(),
+    heading: block.heading.trim(),
+    body: "",
+    href: `/${slug}`,
+    image: block.image ?? "",
+    publishedAt: block.publishedAt ?? "",
+    published,
+  };
+}
+
+function newsHref(value: string) {
+  return value.trim().toLowerCase().replace(/^\/+/, "").replace(/\/+$/, "");
+}
+
+export function prependArticleNews(pages: CmsPage[], card: CmsCard): CmsPage[] {
+  const target = newsHref(card.href);
+  return pages.map((page) => {
+    if (!page.published || !page.blocks.some((block) => isNewsBlock(block.type))) return page;
+    let changed = false;
+    const blocks = page.blocks.map((block) => {
+      if (!isNewsBlock(block.type)) return block;
+      const items = block.items ?? [];
+      if (target && items.some((item) => newsHref(item.href) === target)) return block;
+      changed = true;
+      return { ...block, items: [{ ...card }, ...items] };
+    });
+    return changed ? { ...page, blocks } : page;
+  });
+}
+
+export function setArticleNewsPublished(pages: CmsPage[], slug: string, published: boolean): CmsPage[] {
+  const target = newsHref(slug);
+  if (!target) return pages;
+  return pages.map((page) => {
+    if (!page.blocks.some((block) => isNewsBlock(block.type))) return page;
+    let changed = false;
+    const blocks = page.blocks.map((block) => {
+      if (!isNewsBlock(block.type)) return block;
+      let itemsChanged = false;
+      const items = (block.items ?? []).map((item) => {
+        if (newsHref(item.href) !== target || item.published === published) return item;
+        itemsChanged = true;
+        return { ...item, published };
+      });
+      if (!itemsChanged) return block;
+      changed = true;
+      return { ...block, items };
+    });
+    return changed ? { ...page, blocks } : page;
+  });
+}
+
+export function backfillTestArticleNews(pages: CmsPage[]): CmsPage[] | null {
+  const source = pages.find((page) => page.title.trim().toLowerCase() === "test populera nyheter");
+  const article = source?.blocks.find((block) => block.type === "article");
+  if (!source || !article) return null;
+  const next = setArticleNewsPublished(
+    prependArticleNews(pages, newsCardFromArticle(article, source.slug, source.published)),
+    source.slug,
+    source.published,
+  );
+  return next.some((page, index) => page !== pages[index]) ? next : null;
 }
 
 export function articleParagraphs(body: string): string[] {

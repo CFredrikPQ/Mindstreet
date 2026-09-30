@@ -34,6 +34,7 @@ import { PageBlocks } from "@/components/cms/page-blocks";
 import {
   SITE_HOST,
   articleParagraphs,
+  backfillTestArticleNews,
   blockLabel,
   cloneTemplateBlocks,
   createBlock,
@@ -44,6 +45,9 @@ import {
   fieldsFor,
   isNewsBlock,
   library,
+  newsCardFromArticle,
+  prependArticleNews,
+  setArticleNewsPublished,
   quoteAfterIndex,
   resolveTheme,
   themes,
@@ -254,6 +258,12 @@ export default function AdminPage() {
     }
 
     applyState(state, etag);
+    const filled = backfillTestArticleNews(state.pages);
+    if (filled) {
+      pagesRef.current = filled;
+      setPages(filled);
+      await saveNow();
+    }
     setPhase("ready");
   }
 
@@ -451,7 +461,11 @@ export default function AdminPage() {
       ...draft,
       published: published && complete,
     };
-    pagesRef.current = [...current, page];
+    const article = draftBlocks.find((block) => block.type === "article");
+    const existing = article
+      ? prependArticleNews(current, newsCardFromArticle(article, slug, page.published))
+      : current;
+    pagesRef.current = [...existing, page];
     setPages(pagesRef.current);
     if (await saveNow()) return;
     setSelectedSlug(page.slug);
@@ -473,11 +487,14 @@ export default function AdminPage() {
       setNotice("Fyll i alla fält och länka undersidorna innan sidan publiceras.");
       return;
     }
-    persist((pages) =>
-      pages.map((entry) =>
-        entry.slug === slug ? { ...entry, published: !entry.published } : entry,
-      ),
-    );
+    const nextPublished = !page.published;
+    const hasArticle = page.blocks.some((block) => block.type === "article");
+    persist((pages) => {
+      const toggled = pages.map((entry) =>
+        entry.slug === slug ? { ...entry, published: nextPublished } : entry,
+      );
+      return hasArticle ? setArticleNewsPublished(toggled, slug, nextPublished) : toggled;
+    });
     setNotice(null);
   }
 
