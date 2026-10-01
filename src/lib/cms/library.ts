@@ -608,7 +608,11 @@ export function fieldsFor(type: BlockType): BlockFields {
     return { ...none, heading: "Rubrik", body: "Liten rad", image: true, button: true };
   }
 
-  if (type === "expertise" || type === "offering" || type === "contactCards" || isNewsBlock(type)) {
+  if (type === "contactCards") {
+    return { ...none, heading: "Rubrik", body: "Text", button: true };
+  }
+
+  if (type === "expertise" || type === "offering" || isNewsBlock(type)) {
     return { ...none, heading: "Rubrik", body: null };
   }
 

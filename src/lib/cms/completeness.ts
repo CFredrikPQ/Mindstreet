@@ -123,7 +123,7 @@ function blockCompletenessIssues(block: CmsBlock): CompletenessIssue[] {
   if (fields.heading && block.type !== "contactCards" && blank(block.heading)) {
     issues.push(blockIssue(block, "heading", "Fyll i rubrik", "fyll i rubrik"));
   }
-  if (fields.body && blank(block.body)) {
+  if (fields.body && block.type !== "contactCards" && blank(block.body)) {
     issues.push(blockIssue(block, "body", "Fyll i text", "fyll i text"));
   }
   if (fields.image && blank(block.image)) {
@@ -136,6 +136,7 @@ function blockCompletenessIssues(block: CmsBlock): CompletenessIssue[] {
   const buttonRequired =
     fields.button &&
     block.type !== "contact" &&
+    block.type !== "contactCards" &&
     (block.type !== "statement" || block.buttonLabel !== undefined);
   if (buttonRequired) {
     if (blank(block.buttonLabel)) {

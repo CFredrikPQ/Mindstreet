@@ -324,7 +324,17 @@ function BlockView({
     return (
       <section className="cms-contact-cards">
         <div className="section-inner">
-          {block.heading ? <h2>{block.heading}</h2> : null}
+          {block.heading.trim() || block.body.trim() || block.buttonLabel?.trim() ? (
+            <div className="cms-contact-cards-intro">
+              {block.heading.trim() ? <h2>{block.heading}</h2> : null}
+              {block.body.trim() ? <p className="cms-contact-cards-text">{block.body}</p> : null}
+              {block.buttonLabel?.trim() ? (
+                <a className="btn cms-statement-link" href={block.buttonHref?.trim() || "#"}>
+                  {block.buttonLabel}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
           <div className="cms-contact-card-grid">
             {items.map((item) => (
               <article key={item.id}>

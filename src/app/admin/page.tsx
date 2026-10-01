@@ -1037,6 +1037,7 @@ export default function AdminPage() {
                                   onChange={(patch) => updateBlock(block.id, patch)}
                                   onImage={(src, field) => updateBlock(block.id, { [field]: src })}
                                   parents={rootPages(pages).filter((page) => page.slug !== selected.slug)}
+                                  pages={pages}
                                   pageParentSlug={selected.parentSlug ?? ""}
                                 />
                                 {block.type === "expertise" ? (
@@ -1279,6 +1280,7 @@ export default function AdminPage() {
                                     issues={createIssues}
                                     onChange={(patch) => updateDraftBlock(block.id, patch)}
                                     onImage={(src, field) => updateDraftBlock(block.id, { [field]: src })}
+                                    pages={pages}
                                   />
                                   {block.type === "expertise" ? (
                                     <ExpertiseCards
@@ -1754,6 +1756,7 @@ function BlockFieldsEditor({
   onChange,
   onImage,
   parents,
+  pages,
   pageParentSlug = "",
 }: {
   block: CmsBlock;
@@ -1761,6 +1764,7 @@ function BlockFieldsEditor({
   onChange: (patch: Partial<CmsBlock>) => void;
   onImage: (src: string, field: "image" | "image2") => void;
   parents?: CmsPage[];
+  pages?: CmsPage[];
   pageParentSlug?: string;
 }) {
   const fields = fieldsFor(block.type);
@@ -1984,7 +1988,30 @@ function BlockFieldsEditor({
           ) : null}
         </>
       ) : null}
-      {fields.button && block.type !== "statement" ? (
+      {fields.button && block.type === "contactCards" ? (
+        <>
+          <AdminField label="Knapp">
+            <input
+              value={block.buttonLabel ?? ""}
+              onChange={(event) => onChange({ buttonLabel: event.target.value })}
+            />
+          </AdminField>
+          <AdminField label="Sida">
+            <select
+              value={block.buttonHref ?? ""}
+              onChange={(event) => onChange({ buttonHref: event.target.value })}
+            >
+              <option value="">Ingen sida</option>
+              {(pages ?? []).map((page) => (
+                <option key={page.slug} value={`/${page.slug}`}>
+                  {pageTitle(page)}
+                </option>
+              ))}
+            </select>
+          </AdminField>
+        </>
+      ) : null}
+      {fields.button && block.type !== "statement" && block.type !== "contactCards" ? (
         <>
           <AdminField label="Knapp" issue={buttonIssue}>
             <input

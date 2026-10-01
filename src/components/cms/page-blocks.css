@@ -213,11 +213,30 @@
 }
 
 .cms-contact-cards h2 {
-  margin-bottom: 48px;
+  margin-bottom: 16px;
   font-size: 45px;
   font-weight: 400;
   letter-spacing: -1px;
   line-height: 1.1;
+}
+
+.cms-contact-cards-intro {
+  margin-bottom: 48px;
+}
+
+.cms-contact-cards-intro h2:last-child {
+  margin-bottom: 0;
+}
+
+.cms-contact-cards-text {
+  margin: 0 0 24px;
+  max-width: 46ch;
+  font-size: 20px;
+  line-height: 35px;
+}
+
+.cms-contact-cards-text:last-child {
+  margin-bottom: 0;
 }
 
 .cms-contact-card-grid {
@@ -355,7 +374,8 @@
   text-align: center;
 }
 
-.cms-statement .cms-statement-link {
+.cms-statement .cms-statement-link,
+.cms-contact-cards .cms-statement-link {
   min-width: 0;
   height: 44px;
   padding: 0 26px;
@@ -368,7 +388,8 @@
   line-height: 18px;
 }
 
-.cms-statement .cms-statement-link:hover {
+.cms-statement .cms-statement-link:hover,
+.cms-contact-cards .cms-statement-link:hover {
   background: #21134d;
   color: #fff;
 }
