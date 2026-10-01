@@ -173,7 +173,7 @@ function BlockView({
     );
   }
 
-  if (block.type === "imageText") {
+  if (block.type === "imageText" || block.type === "contact") {
     const side = block.imageSide === "left" ? "left" : "right";
     const theme = resolveTheme(block);
     return (
@@ -380,11 +380,50 @@ function ModuleShape() {
   );
 }
 
+function contactHref(value: string) {
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
+function ContactLines({ block }: { block: CmsBlock }) {
+  if (block.type !== "contact") return null;
+  const name = block.contactName?.trim() ?? "";
+  const title = block.contactTitle?.trim() ?? "";
+  const email = block.contactEmail?.trim() ?? "";
+  const phone = block.contactPhone?.trim() ?? "";
+  const linkedIn = block.contactLinkedIn?.trim() ?? "";
+  if (!name && !title && !email && !phone && !linkedIn) return null;
+
+  return (
+    <ul className="cms-contact-lines">
+      {name ? <li>{name}</li> : null}
+      {title ? <li>{title}</li> : null}
+      {email ? (
+        <li>
+          <a href={`mailto:${email}`}>{email}</a>
+        </li>
+      ) : null}
+      {phone ? (
+        <li>
+          <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>
+        </li>
+      ) : null}
+      {linkedIn ? (
+        <li>
+          <a href={contactHref(linkedIn)} target="_blank" rel="noreferrer">
+            LinkedIn
+          </a>
+        </li>
+      ) : null}
+    </ul>
+  );
+}
+
 function ModuleCopy({ block }: { block: CmsBlock }) {
   return (
     <div className="cms-module-copy">
       {block.eyebrow ? <p className="cms-eyebrow">{block.eyebrow}</p> : null}
       {block.heading ? <h2>{block.heading}</h2> : null}
+      <ContactLines block={block} />
       {block.body ? <p className="cms-module-text">{block.body}</p> : null}
       {block.buttonLabel ? (
         <a className="btn btn-dark" href={block.buttonHref || "#"}>

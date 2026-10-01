@@ -1831,6 +1831,42 @@ function BlockFieldsEditor({
           </AdminField>
         )
       ) : null}
+      {block.type === "contact" ? (
+        <>
+          <AdminField label="Namn">
+            <input
+              value={block.contactName ?? ""}
+              onChange={(event) => onChange({ contactName: event.target.value })}
+            />
+          </AdminField>
+          <AdminField label="Titel">
+            <input
+              value={block.contactTitle ?? ""}
+              onChange={(event) => onChange({ contactTitle: event.target.value })}
+            />
+          </AdminField>
+          <AdminField label="Mailadress">
+            <input
+              type="email"
+              value={block.contactEmail ?? ""}
+              onChange={(event) => onChange({ contactEmail: event.target.value })}
+            />
+          </AdminField>
+          <AdminField label="Telefonnummer">
+            <input
+              type="tel"
+              value={block.contactPhone ?? ""}
+              onChange={(event) => onChange({ contactPhone: event.target.value })}
+            />
+          </AdminField>
+          <AdminField label="LinkedIn">
+            <input
+              value={block.contactLinkedIn ?? ""}
+              onChange={(event) => onChange({ contactLinkedIn: event.target.value })}
+            />
+          </AdminField>
+        </>
+      ) : null}
       {block.type === "article" ? (
         <AdminField label="Publiceringsdatum">
           <input

@@ -117,7 +117,7 @@ function blockCompletenessIssues(block: CmsBlock): CompletenessIssue[] {
   const fields = fieldsFor(block.type);
   const issues: CompletenessIssue[] = [];
 
-  if (fields.eyebrow && blank(block.eyebrow)) {
+  if (fields.eyebrow && block.type !== "contact" && blank(block.eyebrow)) {
     issues.push(blockIssue(block, "eyebrow", "Fyll i överrad", "fyll i överrad"));
   }
   if (fields.heading && blank(block.heading)) {
@@ -134,7 +134,9 @@ function blockCompletenessIssues(block: CmsBlock): CompletenessIssue[] {
   }
 
   const buttonRequired =
-    fields.button && (block.type !== "statement" || block.buttonLabel !== undefined);
+    fields.button &&
+    block.type !== "contact" &&
+    (block.type !== "statement" || block.buttonLabel !== undefined);
   if (buttonRequired) {
     if (blank(block.buttonLabel)) {
       issues.push(blockIssue(block, "buttonLabel", "Fyll i knapp", "fyll i knapp"));

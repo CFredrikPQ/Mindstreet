@@ -1384,11 +1384,13 @@
 }
 
 .admin-thumb-imageText,
+.admin-thumb-contact,
 .admin-thumb-split {
   background: rgba(205, 183, 151, 0.55);
 }
 
 .admin-thumb-imageText::before,
+.admin-thumb-contact::before,
 .admin-thumb-split::before,
 .admin-thumb-imagePair::before {
   content: "";
@@ -1402,6 +1404,7 @@
 }
 
 .admin-thumb-imageText::after,
+.admin-thumb-contact::after,
 .admin-thumb-split::after,
 .admin-thumb-imagePair::after {
   content: "";

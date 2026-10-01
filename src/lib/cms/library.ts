@@ -74,6 +74,11 @@ export const library: {
     description: "Ett foto, överrad och knapp",
   },
   {
+    type: "contact",
+    label: "Kontakt",
+    description: "Ett foto, överrad och knapp",
+  },
+  {
     type: "imagePair",
     label: "Två bilder och text",
     description: "Två överlappande foton",
@@ -165,6 +170,21 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     imageSide: "right",
     image: "/images/about.jpg",
     theme: "sand",
+  },
+  contact: {
+    heading: experienceHeading,
+    body: "",
+    eyebrow: "Om Mindstreet",
+    buttonLabel: "Läs mer",
+    buttonHref: "/#kontakt",
+    imageSide: "right",
+    image: "/images/about.jpg",
+    theme: "sand",
+    contactName: "",
+    contactTitle: "",
+    contactEmail: "",
+    contactPhone: "",
+    contactLinkedIn: "",
   },
   imagePair: {
     heading: experienceHeading,
@@ -437,6 +457,13 @@ export function cloneTemplateBlocks(blocks: CmsBlock[]): CmsBlock[] {
     if (block.imageSide) next.imageSide = block.imageSide;
     if (block.align) next.align = block.align;
     if (block.theme) next.theme = block.theme;
+    if (block.type === "contact") {
+      next.contactName = "";
+      next.contactTitle = "";
+      next.contactEmail = "";
+      next.contactPhone = "";
+      next.contactLinkedIn = "";
+    }
     if (block.quote !== undefined) {
       next.quote = "";
       if (block.quoteAfter !== undefined) next.quoteAfter = block.quoteAfter;
@@ -475,6 +502,7 @@ export function blockHasImage(type: BlockType): boolean {
     type === "split" ||
     type === "banner" ||
     type === "imageText" ||
+    type === "contact" ||
     type === "imagePair" ||
     type === "highlight" ||
     type === "article"
@@ -484,6 +512,7 @@ export function blockHasImage(type: BlockType): boolean {
 export function blockHasTheme(type: BlockType): boolean {
   return (
     type === "imageText" ||
+    type === "contact" ||
     type === "imagePair" ||
     type === "text" ||
     type === "lead" ||
@@ -494,7 +523,7 @@ export function blockHasTheme(type: BlockType): boolean {
 
 export function resolveTheme(block: CmsBlock): BlockTheme {
   if (block.theme) return block.theme;
-  if (block.type === "imageText" || block.type === "imagePair") {
+  if (block.type === "imageText" || block.type === "contact" || block.type === "imagePair") {
     return block.imageSide === "left" ? "mist" : "sand";
   }
   return "white";
@@ -516,7 +545,7 @@ export function fieldsFor(type: BlockType): BlockFields {
     return { ...none, heading: "Rubrik", body: "Liten rad", image: true };
   }
 
-  if (type === "imageText") {
+  if (type === "imageText" || type === "contact") {
     return {
       ...none,
       heading: "Rubrik",

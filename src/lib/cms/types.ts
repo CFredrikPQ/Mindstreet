@@ -5,6 +5,7 @@ export type BlockType =
   | "split"
   | "banner"
   | "imageText"
+  | "contact"
   | "imagePair"
   | "sectionHeader"
   | "highlight"
@@ -47,6 +48,11 @@ export type CmsBlock = {
   quoteCredit?: string;
   quoteAfter?: number;
   publishedAt?: string;
+  contactName?: string;
+  contactTitle?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactLinkedIn?: string;
   imageSide?: ImageSide;
   align?: BlockAlign;
   theme?: BlockTheme;

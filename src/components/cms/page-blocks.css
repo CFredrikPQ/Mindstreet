@@ -192,6 +192,22 @@
   line-height: 1.2;
 }
 
+.cms-module-copy h2:has(+ .cms-contact-lines) {
+  margin-bottom: 12px;
+}
+
+.cms-contact-lines {
+  margin: 0 0 25px;
+  padding: 0;
+  list-style: none;
+  font-size: 20px;
+  line-height: 35px;
+}
+
+.cms-contact-lines a {
+  color: inherit;
+}
+
 .cms-module-text {
   margin: -8px 0 25px;
   font-size: 20px;
