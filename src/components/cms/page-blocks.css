@@ -208,6 +208,37 @@
   color: inherit;
 }
 
+.cms-contact-cards {
+  padding: 72px 0 88px;
+}
+
+.cms-contact-cards h2 {
+  margin-bottom: 48px;
+  font-size: 45px;
+  font-weight: 400;
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+.cms-contact-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 64px 32px;
+}
+
+.cms-contact-card-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 20px;
+  margin-bottom: 24px;
+}
+
+.cms-contact-card-grid .cms-contact-lines {
+  margin-bottom: 0;
+}
+
 .cms-module-text {
   margin: -8px 0 25px;
   font-size: 20px;
@@ -632,6 +663,10 @@
 }
 
 @media (max-width: 980px) {
+  .cms-contact-card-grid {
+    grid-template-columns: 1fr;
+  }
+
   .cms-expertise-grid {
     grid-template-columns: 1fr;
   }

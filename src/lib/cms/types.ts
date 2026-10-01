@@ -6,6 +6,7 @@ export type BlockType =
   | "banner"
   | "imageText"
   | "contact"
+  | "contactCards"
   | "imagePair"
   | "sectionHeader"
   | "highlight"
@@ -31,6 +32,11 @@ export type CmsCard = {
   publishedAt?: string;
   published?: boolean;
   buttonLabel?: string;
+  contactName?: string;
+  contactTitle?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactLinkedIn?: string;
 };
 
 export type CmsBlock = {

@@ -39,6 +39,7 @@ import {
   cloneTemplateBlocks,
   createBlock,
   createCard,
+  createContactCard,
   createNewsItem,
   createOfferingRow,
   createTextColumnSection,
@@ -1047,6 +1048,12 @@ export default function AdminPage() {
                                     onChange={(items) => updateBlock(block.id, { items })}
                                   />
                                 ) : null}
+                                {block.type === "contactCards" ? (
+                                  <ContactCards
+                                    items={block.items ?? []}
+                                    onChange={(items) => updateBlock(block.id, { items })}
+                                  />
+                                ) : null}
                                 {block.type === "offering" ? (
                                   <OfferingRows
                                     blockId={block.id}
@@ -1279,6 +1286,12 @@ export default function AdminPage() {
                                       items={block.items ?? []}
                                       pages={pages}
                                       issues={createIssues}
+                                      onChange={(items) => updateDraftBlock(block.id, { items })}
+                                    />
+                                  ) : null}
+                                  {block.type === "contactCards" ? (
+                                    <ContactCards
+                                      items={block.items ?? []}
                                       onChange={(items) => updateDraftBlock(block.id, { items })}
                                     />
                                   ) : null}
@@ -2648,6 +2661,81 @@ function ExpertiseCards({
         ))}
       </ol>
       <button type="button" onClick={() => onChange([...items, createCard()])}>
+        Lägg till kort
+      </button>
+    </fieldset>
+  );
+}
+
+function ContactCards({
+  items,
+  onChange,
+}: {
+  items: CmsCard[];
+  onChange: (items: CmsCard[]) => void;
+}) {
+  function patch(id: string, next: Partial<CmsCard>) {
+    onChange(items.map((item) => (item.id === id ? { ...item, ...next } : item)));
+  }
+
+  return (
+    <fieldset className="admin-cards">
+      <legend>Kort</legend>
+      <ol>
+        {items.map((item, index) => (
+          <li key={item.id}>
+            <div className="admin-block-head">
+              <strong>Kort {index + 1}</strong>
+              <button
+                type="button"
+                onClick={() => onChange(items.filter((row) => row.id !== item.id))}
+              >
+                Ta bort
+              </button>
+            </div>
+            <ImageField
+              src={item.image}
+              emptyLabel="Ingen bild vald."
+              chooseLabel={item.image ? "Byt bild" : "Välj bild"}
+              onChoose={(src) => patch(item.id, { image: src })}
+              onClear={() => patch(item.id, { image: "" })}
+            />
+            <AdminField label="Namn">
+              <input
+                value={item.contactName ?? ""}
+                onChange={(event) => patch(item.id, { contactName: event.target.value })}
+              />
+            </AdminField>
+            <AdminField label="Titel">
+              <input
+                value={item.contactTitle ?? ""}
+                onChange={(event) => patch(item.id, { contactTitle: event.target.value })}
+              />
+            </AdminField>
+            <AdminField label="Mailadress">
+              <input
+                type="email"
+                value={item.contactEmail ?? ""}
+                onChange={(event) => patch(item.id, { contactEmail: event.target.value })}
+              />
+            </AdminField>
+            <AdminField label="Telefonnummer">
+              <input
+                type="tel"
+                value={item.contactPhone ?? ""}
+                onChange={(event) => patch(item.id, { contactPhone: event.target.value })}
+              />
+            </AdminField>
+            <AdminField label="LinkedIn">
+              <input
+                value={item.contactLinkedIn ?? ""}
+                onChange={(event) => patch(item.id, { contactLinkedIn: event.target.value })}
+              />
+            </AdminField>
+          </li>
+        ))}
+      </ol>
+      <button type="button" onClick={() => onChange([...items, createContactCard()])}>
         Lägg till kort
       </button>
     </fieldset>

@@ -120,7 +120,7 @@ function blockCompletenessIssues(block: CmsBlock): CompletenessIssue[] {
   if (fields.eyebrow && block.type !== "contact" && blank(block.eyebrow)) {
     issues.push(blockIssue(block, "eyebrow", "Fyll i överrad", "fyll i överrad"));
   }
-  if (fields.heading && blank(block.heading)) {
+  if (fields.heading && block.type !== "contactCards" && blank(block.heading)) {
     issues.push(blockIssue(block, "heading", "Fyll i rubrik", "fyll i rubrik"));
   }
   if (fields.body && blank(block.body)) {

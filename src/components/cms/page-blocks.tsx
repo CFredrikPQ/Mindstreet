@@ -319,6 +319,31 @@ function BlockView({
     );
   }
 
+  if (block.type === "contactCards") {
+    const items = block.items ?? [];
+    return (
+      <section className="cms-contact-cards">
+        <div className="section-inner">
+          {block.heading ? <h2>{block.heading}</h2> : null}
+          <div className="cms-contact-card-grid">
+            {items.map((item) => (
+              <article key={item.id}>
+                {item.image ? <img className="cms-contact-card-photo" src={item.image} alt="" /> : null}
+                <ContactDetailList
+                  name={item.contactName}
+                  title={item.contactTitle}
+                  email={item.contactEmail}
+                  phone={item.contactPhone}
+                  linkedIn={item.contactLinkedIn}
+                />
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (block.type === "expertise") {
     const items = block.items ?? [];
     return (
@@ -384,37 +409,63 @@ function contactHref(value: string) {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-function ContactLines({ block }: { block: CmsBlock }) {
-  if (block.type !== "contact") return null;
-  const name = block.contactName?.trim() ?? "";
-  const title = block.contactTitle?.trim() ?? "";
-  const email = block.contactEmail?.trim() ?? "";
-  const phone = block.contactPhone?.trim() ?? "";
-  const linkedIn = block.contactLinkedIn?.trim() ?? "";
-  if (!name && !title && !email && !phone && !linkedIn) return null;
+function ContactDetailList({
+  name = "",
+  title = "",
+  email = "",
+  phone = "",
+  linkedIn = "",
+}: {
+  name?: string;
+  title?: string;
+  email?: string;
+  phone?: string;
+  linkedIn?: string;
+}) {
+  const lines = {
+    name: name.trim(),
+    title: title.trim(),
+    email: email.trim(),
+    phone: phone.trim(),
+    linkedIn: linkedIn.trim(),
+  };
+  if (!lines.name && !lines.title && !lines.email && !lines.phone && !lines.linkedIn) return null;
 
   return (
     <ul className="cms-contact-lines">
-      {name ? <li>{name}</li> : null}
-      {title ? <li>{title}</li> : null}
-      {email ? (
+      {lines.name ? <li>{lines.name}</li> : null}
+      {lines.title ? <li>{lines.title}</li> : null}
+      {lines.email ? (
         <li>
-          <a href={`mailto:${email}`}>{email}</a>
+          <a href={`mailto:${lines.email}`}>{lines.email}</a>
         </li>
       ) : null}
-      {phone ? (
+      {lines.phone ? (
         <li>
-          <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>
+          <a href={`tel:${lines.phone.replace(/[^\d+]/g, "")}`}>{lines.phone}</a>
         </li>
       ) : null}
-      {linkedIn ? (
+      {lines.linkedIn ? (
         <li>
-          <a href={contactHref(linkedIn)} target="_blank" rel="noreferrer">
+          <a href={contactHref(lines.linkedIn)} target="_blank" rel="noreferrer">
             LinkedIn
           </a>
         </li>
       ) : null}
     </ul>
+  );
+}
+
+function ContactLines({ block }: { block: CmsBlock }) {
+  if (block.type !== "contact") return null;
+  return (
+    <ContactDetailList
+      name={block.contactName}
+      title={block.contactTitle}
+      email={block.contactEmail}
+      phone={block.contactPhone}
+      linkedIn={block.contactLinkedIn}
+    />
   );
 }
 

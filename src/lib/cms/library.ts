@@ -79,6 +79,11 @@ export const library: {
     description: "Ett foto, överrad och knapp",
   },
   {
+    type: "contactCards",
+    label: "Kontaktkort",
+    description: "Flera kort med bild ovanför kontaktuppgifter",
+  },
+  {
     type: "imagePair",
     label: "Två bilder och text",
     description: "Två överlappande foton",
@@ -186,6 +191,10 @@ const defaults: Record<BlockType, Omit<CmsBlock, "id" | "type">> = {
     contactPhone: "",
     contactLinkedIn: "",
   },
+  contactCards: {
+    heading: "",
+    body: "",
+  },
   imagePair: {
     heading: experienceHeading,
     body: "",
@@ -258,6 +267,21 @@ export function createCard(heading = "Nytt område"): CmsCard {
     heading,
     body: expertiseCardBody,
     href: "",
+  };
+}
+
+export function createContactCard(): CmsCard {
+  return {
+    id: crypto.randomUUID(),
+    heading: "",
+    body: "",
+    href: "",
+    image: "",
+    contactName: "",
+    contactTitle: "",
+    contactEmail: "",
+    contactPhone: "",
+    contactLinkedIn: "",
   };
 }
 
@@ -443,6 +467,7 @@ export function createBlock(type: BlockType): CmsBlock {
     ...(type === "news" ? { items: createNewsItems() } : {}),
     ...(type === "newsTwelve" ? { items: createNewsItems(12) } : {}),
     ...(type === "textColumn" ? { items: createTextColumnItems() } : {}),
+    ...(type === "contactCards" ? { items: [createContactCard()] } : {}),
   };
 }
 
@@ -487,6 +512,9 @@ export function cloneTemplateBlocks(blocks: CmsBlock[]): CmsBlock[] {
           ? { buttonLabel: "" }
           : {}),
       }));
+    }
+    if (block.type === "contactCards") {
+      next.items = (block.items ?? []).map(() => createContactCard());
     }
     return next;
   });
@@ -580,7 +608,7 @@ export function fieldsFor(type: BlockType): BlockFields {
     return { ...none, heading: "Rubrik", body: "Liten rad", image: true, button: true };
   }
 
-  if (type === "expertise" || type === "offering" || isNewsBlock(type)) {
+  if (type === "expertise" || type === "offering" || type === "contactCards" || isNewsBlock(type)) {
     return { ...none, heading: "Rubrik", body: null };
   }
 
