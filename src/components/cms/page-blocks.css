@@ -569,7 +569,7 @@
 .cms-expertise-link,
 .cms-expertise-grid article > .cms-expertise-arrow {
   position: absolute;
-  right: 8px;
+  left: calc(620px - var(--gutter));
   bottom: 28px;
   display: block;
   line-height: 0;
@@ -577,7 +577,8 @@
 
 .cms-expertise-grid article:nth-child(even) .cms-expertise-link,
 .cms-expertise-grid article:nth-child(even) > .cms-expertise-arrow {
-  right: 0;
+  right: auto;
+  left: calc(1293px - var(--gutter) - 100%);
 }
 
 .cms-expertise-arrow {
@@ -629,8 +630,11 @@
     border-top: 1px solid var(--line);
   }
 
+  .cms-expertise-link,
+  .cms-expertise-grid article > .cms-expertise-arrow,
   .cms-expertise-grid article:nth-child(even) .cms-expertise-link,
   .cms-expertise-grid article:nth-child(even) > .cms-expertise-arrow {
     right: 8px;
+    left: auto;
   }
 }
