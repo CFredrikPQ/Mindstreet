@@ -210,17 +210,17 @@
 
 .admin-pages-layout {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1.2fr) minmax(260px, 0.9fr);
+  grid-template-columns: 200px minmax(0, 1fr) minmax(420px, 1.1fr);
   gap: 24px;
   align-items: start;
 }
 
 .admin-pages-layout.is-create {
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1.2fr) minmax(260px, 0.9fr);
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr) minmax(420px, 1.1fr);
 }
 
 .admin-pages-layout.is-components {
-  grid-template-columns: minmax(240px, 320px) minmax(0, 1.2fr) minmax(260px, 0.9fr);
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr) minmax(420px, 1.1fr);
 }
 
 .admin-pages-layout.is-components > section:first-child .admin-on-page {
@@ -1860,7 +1860,8 @@
 
 .admin-miniature-frame {
   max-height: calc(100svh - 148px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   overflow-anchor: none;
   scrollbar-gutter: stable;
   background: #fff;

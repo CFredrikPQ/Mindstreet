@@ -77,7 +77,7 @@ import {
 import type { BlockTheme, BlockType, CmsBlock, CmsCard, CmsPage } from "@/lib/cms/types";
 import "./admin.css";
 
-const PREVIEW_WIDTH = 1280;
+const PREVIEW_WIDTH = 1440;
 
 async function loadLibraryImages() {
   const response = await fetch("/api/library-images", { cache: "no-store" });
@@ -2133,8 +2133,8 @@ function PageMiniature({
     if (!frame) return;
     const measure = () => {
       const width = frame.clientWidth;
-      if (width <= 0) return;
-      const next = width / PREVIEW_WIDTH;
+      if (width <= 1) return;
+      const next = (width - 1) / PREVIEW_WIDTH;
       setScale((current) => (Math.abs(current - next) < 0.002 ? current : next));
     };
     measure();
