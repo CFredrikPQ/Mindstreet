@@ -515,6 +515,7 @@ function ContactLines({ block }: { block: CmsBlock }) {
   if (block.type !== "contact") return null;
   return (
     <ContactDetailList
+      icons
       name={block.contactName}
       title={block.contactTitle}
       email={block.contactEmail}

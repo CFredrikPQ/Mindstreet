@@ -315,6 +315,9 @@
 }
 
 .cms-contact-lines a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   color: inherit;
 }
 
@@ -368,17 +371,15 @@
   margin-bottom: 0;
 }
 
-.cms-contact-card-grid .cms-contact-lines a {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .cms-contact-icon {
   display: block;
   width: 22px;
   height: 16px;
   flex: 0 0 22px;
+  color: currentColor;
+}
+
+.cms-contact-card-grid .cms-contact-icon {
   color: #7a94a8;
 }
 
