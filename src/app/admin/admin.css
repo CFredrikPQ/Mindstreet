@@ -793,6 +793,26 @@
   color: inherit;
 }
 
+.admin-modal-uses {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-modal-uses li + li {
+  margin-top: 8px;
+}
+
+.admin-modal-uses strong {
+  display: block;
+  font-weight: 500;
+}
+
+.admin-modal-uses small {
+  color: rgba(36, 36, 36, 0.65);
+  font-size: 12px;
+}
+
 .admin-modal-actions {
   display: flex;
   justify-content: flex-end;

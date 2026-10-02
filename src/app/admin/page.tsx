@@ -62,6 +62,7 @@ import {
   orderedPages,
   pagesRemovedWith,
   pageTitle,
+  publishedImageUses,
   readLocalSnapshot,
   restoreArchivedPages,
   restoreTemplateChoice,
@@ -73,6 +74,7 @@ import {
   type CmsState,
   type CmsTemplate,
   type PageArchiveEntry,
+  type PublishedImageUse,
   type TemplateArchiveEntry,
 } from "@/lib/cms/storage";
 import type { BlockTheme, BlockType, CmsBlock, CmsCard, CmsPage } from "@/lib/cms/types";
@@ -1564,7 +1566,7 @@ export default function AdminPage() {
           {panel === "images" ? (
             <div className="admin-panel">
               <PageHeading kicker="Bilder" title="Bildbibliotek" />
-              <BlobLibrary onRemoved={forgetUploadedImage} />
+              <BlobLibrary pages={pages} onRemoved={forgetUploadedImage} />
             </div>
           ) : null}
 
@@ -3193,12 +3195,75 @@ function ImageField({
   );
 }
 
+function DeleteBlobDialog({
+  url,
+  uses,
+  deleting,
+  onCancel,
+  onConfirm,
+}: {
+  url: string;
+  uses: PublishedImageUse[];
+  deleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const blocked = uses.length > 0;
+
+  return (
+    <div
+      className="admin-modal-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !deleting) onCancel();
+      }}
+    >
+      <div className="admin-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-blob-title">
+        <h2 id="delete-blob-title">{blocked ? "Bilden kan inte tas bort" : "Ta bort bilden?"}</h2>
+        {blocked ? (
+          <>
+            <p>
+              <strong>{blobFileName(url)}</strong> visas på {uses.length === 1 ? "en publicerad sida" : "publicerade sidor"}. Byt
+              ut eller ta bort bilden där först, så att {uses.length === 1 ? "sidan" : "sidorna"} inte går sönder.
+            </p>
+            <ul className="admin-modal-uses">
+              {uses.map((page) => (
+                <li key={page.slug}>
+                  <strong>{page.title}</strong>
+                  <small>
+                    {SITE_HOST}/{page.slug}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p>
+            <strong>{blobFileName(url)}</strong> tas bort från Vercel Blob. Kopior i utkast, mallar och arkiv
+            försvinner också.
+          </p>
+        )}
+        <img className="admin-blob-confirm" src={url} alt="" />
+        <div className="admin-modal-actions">
+          <button type="button" className="admin-quiet" disabled={deleting} onClick={onCancel}>
+            {blocked ? "Stäng" : "Avbryt"}
+          </button>
+          {blocked ? null : (
+            <button type="button" className="admin-danger-button" disabled={deleting} onClick={onConfirm}>
+              {deleting ? "Tar bort…" : "Ta bort bild"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function blobFileName(url: string) {
   const name = decodeURIComponent(url.split("/").pop() ?? url);
   return name.replace(/-[A-Za-z0-9]{8,}(?=\.[^.]+$)/, "");
 }
 
-function BlobLibrary({ onRemoved }: { onRemoved: (url: string) => void }) {
+function BlobLibrary({ pages, onRemoved }: { pages: CmsPage[]; onRemoved: (url: string) => void }) {
   const [images, setImages] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -3281,9 +3346,20 @@ function BlobLibrary({ onRemoved }: { onRemoved: (url: string) => void }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url: pendingUrl }),
       });
-      const data = (await response.json().catch(() => null)) as { error?: string; warning?: string } | null;
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        warning?: string;
+        pages?: { title?: string }[];
+      } | null;
       if (!response.ok) {
-        setError(data?.error ?? "Kunde inte ta bort bilden.");
+        const titles = (data?.pages ?? [])
+          .map((page) => page.title?.trim())
+          .filter((title): title is string => Boolean(title));
+        setError(
+          titles.length > 0
+            ? `${data?.error ?? "Bilden används på publicerade sidor."} ${titles.join(", ")}.`
+            : (data?.error ?? "Kunde inte ta bort bilden."),
+        );
         return;
       }
       onRemoved(pendingUrl);
@@ -3300,8 +3376,9 @@ function BlobLibrary({ onRemoved }: { onRemoved: (url: string) => void }) {
   return (
     <section className="admin-blob" aria-label="Uppladdade bilder">
       <p>
-        Uppladdade bilder sparas i Vercel Blob och är gemensamma för alla som redigerar. Tar du bort en
-        bild här försvinner den också från sidor, mallar och arkiv.
+        Uppladdade bilder sparas i Vercel Blob och är gemensamma för alla som redigerar. En bild som
+        visas på en publicerad sida går inte att ta bort. Övriga kopior i utkast, mallar och arkiv
+        försvinner tillsammans med bilden.
       </p>
       <div className="admin-blob-toolbar">
         <label className="admin-upload">
@@ -3339,29 +3416,13 @@ function BlobLibrary({ onRemoved }: { onRemoved: (url: string) => void }) {
         </ul>
       ) : null}
       {pendingUrl ? (
-        <div
-          className="admin-modal-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !deleting) setPendingUrl(null);
-          }}
-        >
-          <div className="admin-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-blob-title">
-            <h2 id="delete-blob-title">Ta bort bilden?</h2>
-            <p>
-              <strong>{blobFileName(pendingUrl)}</strong> tas bort från Vercel Blob och från varje sida, mall
-              och arkivkopia som använder den.
-            </p>
-            <img className="admin-blob-confirm" src={pendingUrl} alt="" />
-            <div className="admin-modal-actions">
-              <button type="button" className="admin-quiet" disabled={deleting} onClick={() => setPendingUrl(null)}>
-                Avbryt
-              </button>
-              <button type="button" className="admin-danger-button" disabled={deleting} onClick={() => void confirmDelete()}>
-                {deleting ? "Tar bort…" : "Ta bort bild"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteBlobDialog
+          url={pendingUrl}
+          uses={publishedImageUses(pages, pendingUrl)}
+          deleting={deleting}
+          onCancel={() => setPendingUrl(null)}
+          onConfirm={() => void confirmDelete()}
+        />
       ) : null}
     </section>
   );

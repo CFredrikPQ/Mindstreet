@@ -3,7 +3,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/cms/admin-session";
 import { readCmsState, writeCmsState } from "@/lib/cms/blob-store";
-import { withoutImage } from "@/lib/cms/storage";
+import { publishedImageUses, withoutImage } from "@/lib/cms/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +97,22 @@ export async function DELETE(request: Request) {
   const url = body && typeof body === "object" && "url" in body ? (body as { url?: unknown }).url : null;
   if (typeof url !== "string" || !isLibraryBlobUrl(url)) {
     return NextResponse.json({ error: "Bilden finns inte i blob-biblioteket." }, { status: 400 });
+  }
+
+  try {
+    const stored = await readCmsState();
+    const pages = publishedImageUses(stored.state.pages, url);
+    if (pages.length > 0) {
+      return NextResponse.json(
+        {
+          error: "Bilden används på publicerade sidor. Byt ut den där innan du tar bort den.",
+          pages,
+        },
+        { status: 409 },
+      );
+    }
+  } catch {
+    return NextResponse.json({ error: "Kunde inte kontrollera om bilden används." }, { status: 500 });
   }
 
   try {

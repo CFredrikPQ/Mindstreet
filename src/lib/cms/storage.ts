@@ -65,6 +65,31 @@ export function serializeState(state: CmsState) {
   return { ...state, seedVersion: SEED_VERSION };
 }
 
+export type PublishedImageUse = {
+  slug: string;
+  title: string;
+};
+
+function blockShowsImage(block: CmsBlock, url: string): boolean {
+  if (block.image === url || block.image2 === url) return true;
+  const news = block.type === "news" || block.type === "newsTwelve";
+  return (block.items ?? []).some((item) => {
+    if (item.image !== url) return false;
+    if (news && item.published === false) return false;
+    return true;
+  });
+}
+
+export function publishedImageUses(pages: CmsPage[], url: string): PublishedImageUse[] {
+  const uses: PublishedImageUse[] = [];
+  for (const page of pages) {
+    if (!page.published) continue;
+    if (!page.blocks.some((block) => blockShowsImage(block, url))) continue;
+    uses.push({ slug: page.slug, title: pageTitle(page) });
+  }
+  return uses;
+}
+
 export function blocksWithoutImage(blocks: CmsBlock[], url: string): CmsBlock[] {
   return blocks.map((block) => {
     const items = block.items?.some((item) => item.image === url)
