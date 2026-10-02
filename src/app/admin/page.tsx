@@ -475,11 +475,11 @@ export default function AdminPage() {
     setSelectedSlug(page.slug);
     setLastSavedSlug(page.slug);
     resetCreateForm();
-    if (!complete) {
-      if (published) {
-        setNotice("Sidan sparades som utkast eftersom fält eller undersideslänkar saknas.");
-      }
-      setPanel("pages");
+    setPanel("pages");
+    if (!complete && published) {
+      setNotice("Sidan sparades som utkast eftersom fält eller undersideslänkar saknas.");
+    } else {
+      setNotice(null);
     }
   }
 
@@ -650,23 +650,29 @@ export default function AdminPage() {
       setNotice("Välj en befintlig förälder.");
       return;
     }
-    const page: CmsPage = {
+    if (templatesRef.current.some((template) => template.slug === slug)) {
+      setNotice("Det finns redan en mall med den sökvägen.");
+      return;
+    }
+    const blocks = blankBlocks;
+    const template: CmsTemplate = {
       slug,
       title,
       parentSlug: parent,
-      published: false,
-      links: [],
-      blocks: blankBlocks,
+      blocks,
     };
-    pagesRef.current = [...current, page];
-    setPages(pagesRef.current);
+    templatesRef.current = [...templatesRef.current, template];
+    setTemplates(templatesRef.current);
     if (await saveNow()) return;
-    setSelectedSlug(page.slug);
-    setComponentTarget(page.slug);
     setBlankBlocks([]);
     setBlankTitle("");
     setBlankParent("");
-    setNotice("Sidmallen är sparad som utkast.");
+    setTemplateSlug(slug);
+    setDraftBlocks(cloneTemplateBlocks(blocks));
+    setTitleInput("");
+    setParentSlug("");
+    setPanel("create");
+    setNotice("Sidmallen är sparad.");
   }
 
   function updateBlock(id: string, patch: Partial<CmsBlock>) {
