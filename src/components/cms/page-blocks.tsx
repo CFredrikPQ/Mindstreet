@@ -178,7 +178,9 @@ function BlockView({
     const theme = resolveTheme(block);
     return (
       <section className={`cms-media cms-theme-${theme}`}>
-        {theme === "mist" ? <ModuleShape /> : null}
+        {(block.type === "imageText" ? (block.shape ?? theme === "mist") : theme === "mist") ? (
+          <ModuleShape align={block.type === "imageText" && side === "right" ? "left" : undefined} />
+        ) : null}
         <div className={`cms-media-inner is-image-${side}`}>
           {side === "left" ? <ModulePhoto src={block.image} /> : null}
           <ModuleCopy block={block} />
@@ -397,16 +399,18 @@ function ThemedSurface({
   const theme = resolveTheme(block);
   return (
     <section className={`cms-surface cms-theme-${theme}`}>
-      {theme === "mist" ? <ModuleShape /> : null}
+      {(block.type === "lead" ? (block.shape ?? theme === "mist") : theme === "mist") ? (
+        <ModuleShape />
+      ) : null}
       <div className="cms-surface-inner">{children}</div>
     </section>
   );
 }
 
-function ModuleShape() {
+function ModuleShape({ align }: { align?: "left" }) {
   return (
     <img
-      className="cms-media-shape"
+      className={align === "left" ? "cms-media-shape is-left" : "cms-media-shape"}
       src="/icons/about-shape.svg"
       width={1440}
       height={833}

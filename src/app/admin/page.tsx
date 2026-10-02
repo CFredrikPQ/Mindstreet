@@ -50,6 +50,7 @@ import {
   prependArticleNews,
   setArticleNewsPublished,
   quoteAfterIndex,
+  leadThemes,
   resolveTheme,
   themes,
 } from "@/lib/cms/library";
@@ -1822,7 +1823,21 @@ function BlockFieldsEditor({
         </label>
       ) : null}
       {fields.theme ? (
-        <ColorSwatch value={resolveTheme(block)} onChange={(theme) => onChange({ theme })} />
+        <ColorSwatch
+          value={resolveTheme(block)}
+          options={block.type === "lead" || block.type === "imageText" ? leadThemes : themes}
+          onChange={(theme) => onChange({ theme })}
+        />
+      ) : null}
+      {block.type === "imageText" || block.type === "lead" ? (
+        <label className="admin-check">
+          <input
+            type="checkbox"
+            checked={block.shape ?? resolveTheme(block) === "mist"}
+            onChange={(event) => onChange({ shape: event.target.checked })}
+          />
+          Figur
+        </label>
       ) : null}
       {fields.eyebrow ? (
         <AdminField label="Överrad" issue={eyebrowIssue}>
@@ -3012,15 +3027,17 @@ function BlockCatalog({ onAdd }: { onAdd: (type: BlockType) => void }) {
 function ColorSwatch({
   value,
   onChange,
+  options = themes,
 }: {
   value: BlockTheme;
   onChange: (theme: BlockTheme) => void;
+  options?: typeof themes;
 }) {
   return (
     <fieldset className="admin-swatches">
       <legend>Bakgrund</legend>
       <div>
-        {themes.map((theme) => (
+        {options.map((theme) => (
           <button
             key={theme.id}
             type="button"

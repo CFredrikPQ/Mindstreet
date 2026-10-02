@@ -21,7 +21,23 @@ export type BlockType =
 
 export type ImageSide = "left" | "right";
 export type BlockAlign = "left" | "center" | "right";
-export type BlockTheme = "sand" | "mist" | "cream" | "white";
+export type BlockTheme =
+  | "sand"
+  | "mist"
+  | "cream"
+  | "white"
+  | "slate"
+  | "coralTint"
+  | "coral"
+  | "sage"
+  | "linen"
+  | "ink"
+  | "steel"
+  | "fog"
+  | "charcoal"
+  | "rust"
+  | "ice"
+  | "blush";
 
 export type CmsCard = {
   id: string;
@@ -62,6 +78,7 @@ export type CmsBlock = {
   imageSide?: ImageSide;
   align?: BlockAlign;
   theme?: BlockTheme;
+  shape?: boolean;
   parentSlug?: string;
 };
 
