@@ -561,15 +561,23 @@ export function blockHasImage(type: BlockType): boolean {
 }
 
 export function blockHasTheme(type: BlockType): boolean {
-  return (
-    type === "imageText" ||
-    type === "contact" ||
-    type === "imagePair" ||
-    type === "text" ||
-    type === "lead" ||
-    type === "sectionHeader" ||
-    type === "article"
-  );
+  return usesExpandedTheme(type);
+}
+
+const expandedThemeTypes = new Set<BlockType>([
+  "imageText",
+  "lead",
+  "text",
+  "contact",
+  "imagePair",
+  "split",
+  "sectionHeader",
+  "article",
+  "statement",
+]);
+
+export function usesExpandedTheme(type: BlockType): boolean {
+  return expandedThemeTypes.has(type);
 }
 
 export function resolveTheme(block: CmsBlock): BlockTheme {
@@ -577,6 +585,7 @@ export function resolveTheme(block: CmsBlock): BlockTheme {
   if (block.type === "imageText" || block.type === "contact" || block.type === "imagePair") {
     return block.imageSide === "left" ? "mist" : "sand";
   }
+  if (block.type === "split") return "mist";
   return "white";
 }
 
@@ -653,7 +662,7 @@ export function fieldsFor(type: BlockType): BlockFields {
   }
 
   if (type === "statement") {
-    return { ...none, heading: null, body: "Text", button: true };
+    return { ...none, heading: null, body: "Text", button: true, theme: true };
   }
 
   if (type === "lead" || type === "text") {
@@ -674,6 +683,10 @@ export function fieldsFor(type: BlockType): BlockFields {
       imageSide: true,
       theme: true,
     };
+  }
+
+  if (type === "split") {
+    return { ...none, heading: "Rubrik", body: "Text", image: true, theme: true };
   }
 
   return {

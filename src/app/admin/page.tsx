@@ -53,6 +53,7 @@ import {
   leadThemes,
   resolveTheme,
   themes,
+  usesExpandedTheme,
 } from "@/lib/cms/library";
 import {
   blocksWithoutImage,
@@ -1831,11 +1832,11 @@ function BlockFieldsEditor({
       {fields.theme ? (
         <ColorSwatch
           value={resolveTheme(block)}
-          options={block.type === "lead" || block.type === "imageText" ? leadThemes : themes}
+          options={usesExpandedTheme(block.type) ? leadThemes : themes}
           onChange={(theme) => onChange({ theme })}
         />
       ) : null}
-      {block.type === "imageText" || block.type === "lead" ? (
+      {usesExpandedTheme(block.type) ? (
         <label className="admin-check">
           <input
             type="checkbox"

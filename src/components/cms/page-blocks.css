@@ -168,6 +168,23 @@
   background: rgba(225, 188, 171, 0.4);
 }
 
+.about.cms-theme-sand { background: rgba(205, 183, 151, 0.5); }
+.about.cms-theme-mist { background: #e9edef; }
+.about.cms-theme-cream { background: #ede1da; }
+.about.cms-theme-white { background: #fff; }
+.about.cms-theme-slate { background: #54809e; }
+.about.cms-theme-coralTint { background: rgba(227, 124, 100, 0.4); }
+.about.cms-theme-coral { background: #e37c64; }
+.about.cms-theme-sage { background: #719f8d; }
+.about.cms-theme-linen { background: #e6dbcb; }
+.about.cms-theme-ink { background: #0a2a3a; }
+.about.cms-theme-steel { background: #5e7f9a; }
+.about.cms-theme-fog { background: #e8e7e7; }
+.about.cms-theme-charcoal { background: #3a3a45; }
+.about.cms-theme-rust { background: #955035; }
+.about.cms-theme-ice { background: #c4dbe5; }
+.about.cms-theme-blush { background: rgba(225, 188, 171, 0.4); }
+
 .cms-surface {
   position: relative;
   overflow: hidden;
@@ -183,7 +200,17 @@
 .cms-media.cms-theme-ink,
 .cms-media.cms-theme-steel,
 .cms-media.cms-theme-charcoal,
-.cms-media.cms-theme-rust {
+.cms-media.cms-theme-rust,
+.about.cms-theme-slate,
+.about.cms-theme-ink,
+.about.cms-theme-steel,
+.about.cms-theme-charcoal,
+.about.cms-theme-rust,
+.cms-statement.cms-theme-slate,
+.cms-statement.cms-theme-ink,
+.cms-statement.cms-theme-steel,
+.cms-statement.cms-theme-charcoal,
+.cms-statement.cms-theme-rust {
   color: #fff;
 }
 
@@ -419,8 +446,10 @@
 }
 
 .cms-statement {
+  position: relative;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   padding: 96px var(--gutter);
   color: #21134d;
 }
@@ -439,6 +468,8 @@
 }
 
 .cms-statement-inner {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -475,6 +506,24 @@
 .cms-contact-cards .cms-statement-link:hover {
   background: #21134d;
   color: #fff;
+}
+
+.cms-statement.cms-theme-slate .cms-statement-link,
+.cms-statement.cms-theme-ink .cms-statement-link,
+.cms-statement.cms-theme-steel .cms-statement-link,
+.cms-statement.cms-theme-charcoal .cms-statement-link,
+.cms-statement.cms-theme-rust .cms-statement-link {
+  color: #fff;
+  border-color: #fff;
+}
+
+.cms-statement.cms-theme-slate .cms-statement-link:hover,
+.cms-statement.cms-theme-ink .cms-statement-link:hover,
+.cms-statement.cms-theme-steel .cms-statement-link:hover,
+.cms-statement.cms-theme-charcoal .cms-statement-link:hover,
+.cms-statement.cms-theme-rust .cms-statement-link:hover {
+  background: #fff;
+  color: #21134d;
 }
 
 .cms-article-back {

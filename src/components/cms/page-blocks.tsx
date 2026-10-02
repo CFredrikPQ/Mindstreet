@@ -130,15 +130,10 @@ function BlockView({
   }
 
   if (block.type === "split") {
+    const theme = resolveTheme(block);
     return (
-      <section className="about">
-        <img
-          className="about-shape"
-          src="/icons/about-shape.svg"
-          width={1440}
-          height={833}
-          alt=""
-        />
+      <section className={`about cms-theme-${theme}`}>
+        {(block.shape ?? theme === "mist") ? <ModuleShape /> : null}
         <div className="about-inner">
           {block.image ? (
             <img className="about-photo" src={block.image} alt="" />
@@ -178,8 +173,8 @@ function BlockView({
     const theme = resolveTheme(block);
     return (
       <section className={`cms-media cms-theme-${theme}`}>
-        {(block.type === "imageText" ? (block.shape ?? theme === "mist") : theme === "mist") ? (
-          <ModuleShape align={block.type === "imageText" && side === "right" ? "left" : undefined} />
+        {(block.shape ?? theme === "mist") ? (
+          <ModuleShape align={side === "right" ? "left" : undefined} />
         ) : null}
         <div className={`cms-media-inner is-image-${side}`}>
           {side === "left" ? <ModulePhoto src={block.image} /> : null}
@@ -195,7 +190,9 @@ function BlockView({
     const theme = resolveTheme(block);
     return (
       <section className={`cms-media cms-media-pair cms-theme-${theme}`}>
-        {theme === "mist" ? <ModuleShape /> : null}
+        {(block.shape ?? theme === "mist") ? (
+          <ModuleShape align={side === "right" ? "left" : undefined} />
+        ) : null}
         <div className={`cms-media-inner is-image-${side}`}>
           {side === "left" ? <PairPhotos block={block} /> : null}
           <ModuleCopy block={block} />
@@ -292,8 +289,10 @@ function BlockView({
 
   if (block.type === "statement") {
     const align = block.align === "left" || block.align === "right" ? block.align : "center";
+    const theme = resolveTheme(block);
     return (
-      <section className={`cms-statement is-${align}`}>
+      <section className={`cms-statement is-${align} cms-theme-${theme}`}>
+        {(block.shape ?? theme === "mist") ? <ModuleShape /> : null}
         <div className="cms-statement-inner">
           {block.body ? <p>{block.body}</p> : null}
           {block.buttonLabel ? (
@@ -399,9 +398,7 @@ function ThemedSurface({
   const theme = resolveTheme(block);
   return (
     <section className={`cms-surface cms-theme-${theme}`}>
-      {(block.type === "lead" ? (block.shape ?? theme === "mist") : theme === "mist") ? (
-        <ModuleShape />
-      ) : null}
+      {(block.shape ?? theme === "mist") ? <ModuleShape /> : null}
       <div className="cms-surface-inner">{children}</div>
     </section>
   );
