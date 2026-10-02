@@ -368,6 +368,32 @@
   margin-bottom: 0;
 }
 
+.cms-contact-card-grid .cms-contact-lines a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cms-contact-icon {
+  display: block;
+  width: 22px;
+  height: 16px;
+  flex: 0 0 22px;
+  color: #7a94a8;
+}
+
+.cms-contact-icon.is-phone {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+}
+
+.cms-contact-icon.is-in {
+  width: 22px;
+  height: 18px;
+  flex-basis: 22px;
+}
+
 .cms-module-text {
   margin: -8px 0 25px;
   font-size: 20px;
