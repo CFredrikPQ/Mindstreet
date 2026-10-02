@@ -3,9 +3,19 @@
 import { useEffect, useState } from "react";
 import { menuItems } from "@/content/home";
 
-export function Header({ variant = "overlay" }: { variant?: "overlay" | "bar" }) {
+export function Header({
+  variant = "overlay",
+  items,
+}: {
+  variant?: "overlay" | "bar";
+  items?: { label: string; href: string }[];
+}) {
   const [open, setOpen] = useState(false);
   const bar = variant === "bar";
+  const configured = (items ?? [])
+    .map((item) => ({ label: item.label.trim(), href: item.href.trim() || "#" }))
+    .filter((item) => item.label);
+  const links = configured.length > 0 ? configured : menuItems;
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +77,7 @@ export function Header({ variant = "overlay" }: { variant?: "overlay" | "bar" })
               <span />
             </button>
             <ul>
-              {menuItems.map((item, index) => (
+              {links.map((item, index) => (
                 <li key={`${item.label}-${index}`}>
                   <a href={item.href} onClick={() => setOpen(false)}>
                     {item.label}

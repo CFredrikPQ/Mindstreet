@@ -80,6 +80,7 @@ export type CmsBlock = {
   theme?: BlockTheme;
   shape?: boolean;
   parentSlug?: string;
+  menu?: CmsLink[];
 };
 
 export type CmsLink = {

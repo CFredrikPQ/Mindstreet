@@ -76,7 +76,7 @@ function BlockView({
   publishedAt: string;
 }) {
   if (block.type === "pageHeader") {
-    return <Header variant="bar" />;
+    return <Header variant="bar" items={block.menu} />;
   }
 
   if (block.type === "hero") {
@@ -88,7 +88,7 @@ function BlockView({
           <div className="hero-photo cms-hero-fallback" />
         )}
         <div className="hero-shade" />
-        {withHeader ? <Header /> : null}
+        {withHeader ? <Header items={block.menu} /> : null}
         <div className="hero-content">
           <div>
             <h1>{block.heading}</h1>

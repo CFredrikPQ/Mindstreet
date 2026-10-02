@@ -79,7 +79,7 @@ import {
   type PublishedImageUse,
   type TemplateArchiveEntry,
 } from "@/lib/cms/storage";
-import type { BlockTheme, BlockType, CmsBlock, CmsCard, CmsPage } from "@/lib/cms/types";
+import type { BlockTheme, BlockType, CmsBlock, CmsCard, CmsLink, CmsPage } from "@/lib/cms/types";
 import "./admin.css";
 
 const PREVIEW_WIDTH = 1440;
@@ -1091,6 +1091,13 @@ export default function AdminPage() {
                                     onChange={(items) => updateBlock(block.id, { items })}
                                   />
                                 ) : null}
+                                {index === 0 && (block.type === "pageHeader" || block.type === "hero") ? (
+                                  <MenuRows
+                                    items={block.menu ?? []}
+                                    pages={orderedPages(pages)}
+                                    onChange={(menu) => updateBlock(block.id, { menu })}
+                                  />
+                                ) : null}
                               </li>
                             ))}
                         </ol>
@@ -1280,7 +1287,7 @@ export default function AdminPage() {
                             <p className="admin-empty">Mallen har inga komponenter ännu.</p>
                           ) : (
                             <ol>
-                              {draftBlocks.map((block) => (
+                              {draftBlocks.map((block, index) => (
                                 <li key={block.id}>
                                   <div className="admin-block-head">
                                     <strong>{blockLabel(block.type)}</strong>
@@ -1331,6 +1338,13 @@ export default function AdminPage() {
                                       items={block.items ?? []}
                                       issues={createIssues}
                                       onChange={(items) => updateDraftBlock(block.id, { items })}
+                                    />
+                                  ) : null}
+                                  {index === 0 && (block.type === "pageHeader" || block.type === "hero") ? (
+                                    <MenuRows
+                                      items={block.menu ?? []}
+                                      pages={orderedPages(pages)}
+                                      onChange={(menu) => updateDraftBlock(block.id, { menu })}
                                     />
                                   ) : null}
                                 </li>
@@ -2713,6 +2727,65 @@ function ExpertiseCards({
       </ol>
       <button type="button" onClick={() => onChange([...items, createCard()])}>
         Lägg till kort
+      </button>
+    </fieldset>
+  );
+}
+
+function MenuRows({
+  items,
+  pages,
+  onChange,
+}: {
+  items: CmsLink[];
+  pages: CmsPage[];
+  onChange: (items: CmsLink[]) => void;
+}) {
+  function patch(index: number, next: Partial<CmsLink>) {
+    onChange(items.map((item, itemIndex) => (itemIndex === index ? { ...item, ...next } : item)));
+  }
+
+  const pageHrefs = new Set(pages.map((page) => `/${page.slug}`));
+
+  return (
+    <fieldset className="admin-cards">
+      <legend>Meny</legend>
+      <ol>
+        {items.map((item, index) => (
+          <li key={index}>
+            <div className="admin-block-head">
+              <strong>Rad {index + 1}</strong>
+              <button
+                type="button"
+                onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}
+              >
+                Ta bort
+              </button>
+            </div>
+            <AdminField label="Text">
+              <input
+                value={item.label}
+                onChange={(event) => patch(index, { label: event.target.value })}
+              />
+            </AdminField>
+            <AdminField label="Länk">
+              <select value={item.href} onChange={(event) => patch(index, { href: event.target.value })}>
+                <option value="">Välj sida</option>
+                {item.href && !pageHrefs.has(item.href) ? (
+                  <option value={item.href}>{item.href}</option>
+                ) : null}
+                {pages.map((page) => (
+                  <option key={page.slug} value={`/${page.slug}`}>
+                    {page.parentSlug ? `– ${pageTitle(page)}` : pageTitle(page)}
+                  </option>
+                ))}
+              </select>
+            </AdminField>
+          </li>
+        ))}
+      </ol>
+      <button type="button" onClick={() => onChange([...items, { label: "", href: "" }])}>
+        Lägg till rad
       </button>
     </fieldset>
   );
