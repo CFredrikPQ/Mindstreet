@@ -573,7 +573,20 @@ export function fieldsFor(type: BlockType): BlockFields {
     return { ...none, heading: "Rubrik", body: "Liten rad", image: true };
   }
 
-  if (type === "imageText" || type === "contact") {
+  if (type === "imageText") {
+    return {
+      ...none,
+      heading: "Rubrik",
+      body: "Text",
+      eyebrow: true,
+      image: true,
+      button: true,
+      imageSide: true,
+      theme: true,
+    };
+  }
+
+  if (type === "contact") {
     return {
       ...none,
       heading: "Rubrik",
